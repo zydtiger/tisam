@@ -18,7 +18,7 @@ dependencies = [
   "einops",
   "psutil",
   "scipy",
-  "sam3 @ git+https://github.com/zydtiger/sam3@c317802ba62d10176381f085543088ab8df270b1",
+  "sam3 @ git+https://github.com/zydtiger/sam3@3563c10155c774f1da465d1fd843873e510be25c",
 ]
 
 [project.optional-dependencies]
