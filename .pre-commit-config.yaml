@@ -13,6 +13,12 @@ repos:
         name: commit subject
         stages: [commit-msg]
         args: ['--multiline', '\A(Merge |(feat|fix|docs|refactor|test|build|conf): [a-z])']
+  - repo: https://github.com/rhysd/actionlint
+    rev: 914e7df21a07ef503a81201c76d2b11c789d3fca # frozen: v1.7.12
+    hooks:
+      - id: actionlint
+        files: ^\.github/workflows/
+        args: [-shellcheck=, -pyflakes=]
   - repo: local
     hooks:
       - id: uv-lock-check

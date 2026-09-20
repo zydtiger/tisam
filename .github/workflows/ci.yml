@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Python ${{ matrix.python-version }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13", "3.14"]
+    env:
+      CUDA_VISIBLE_DEVICES: ""
+      HF_HUB_OFFLINE: "1"
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install uv and Python
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          version: "0.10.x"
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+          cache-suffix: python-${{ matrix.python-version }}
+          prune-cache: true
+
+      - name: Install project and all optional workflows
+        run: uv sync --locked --all-extras --group dev
+
+      - name: Run commit-stage hooks
+        if: matrix.python-version == '3.12'
+        uses: j178/prek-action@4e14d07f9231acabce116ccfca13b13dd9755ece # v3.0.0
+        with:
+          prek-version: "0.4.x"
+          extra-args: --all-files
+
+      - name: Run push-stage hooks
+        uses: j178/prek-action@4e14d07f9231acabce116ccfca13b13dd9755ece # v3.0.0
+        with:
+          prek-version: "0.4.x"
+          cache: false
+          extra-args: --all-files --hook-stage pre-push
+
+      - name: Build distribution and verify base wheel installation
+        if: matrix.python-version == '3.12'
+        shell: bash
+        run: |
+          smoke_dir=$(mktemp -d)
+          trap 'rm -rf "$smoke_dir"' EXIT
+          uv build --out-dir "$smoke_dir/dist"
+          uv export --locked --no-dev --no-emit-project --no-hashes > "$smoke_dir/constraints.txt"
+          uv venv "$smoke_dir/venv"
+          uv pip install --python "$smoke_dir/venv/bin/python" \
+            --constraint "$smoke_dir/constraints.txt" "$smoke_dir"/dist/*.whl
+          cd "$smoke_dir"
+          "$smoke_dir/venv/bin/python" -I -c \
+            'from tisam import TiSAM, ModelConfig, load_model; import importlib.util; assert importlib.util.find_spec("mammoth") is None'
+          "$smoke_dir/venv/bin/tisam" --help

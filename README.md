@@ -7,15 +7,17 @@ It contains no datasets or pretrained weights. Client/server applications and
 other segmentation architectures are outside this package.
 
 Source is available at [zydtiger/tisam](https://github.com/zydtiger/tisam).
-No package registry release or project license has been selected yet. Hosted CI
-and release automation are not configured.
+No package registry release or project license has been selected yet. Release
+automation is not configured.
 
 ## Install
 
-The initial supported environment is Linux with Python 3.12 and NumPy 2 or higher. CUDA is needed for
-practical pretrained-model execution. The dependency lock retains the tested
-PyTorch 2.12.1 / torchvision 0.27.1 stack; this project does not select a custom
-CUDA index. Follow PyTorch's platform requirements when preparing a machine.
+Linux with Python 3.12–3.14 and NumPy 2 or higher is covered by the offline
+test matrix. Real pretrained-model execution is verified on Python 3.12.
+CUDA is needed for practical pretrained-model execution. The dependency lock
+retains the tested PyTorch 2.12.1 / torchvision 0.27.1 stack; this project does
+not select a custom CUDA index. Follow PyTorch's platform requirements when
+preparing a machine.
 
 Install directly from GitHub into an existing environment:
 
@@ -173,6 +175,12 @@ prek run --all-files
 prek run --all-files --hook-stage pre-push
 uv build
 ```
+
+GitHub Actions runs offline tests and type checks on Python 3.12, 3.13 and 3.14
+for pull requests, pushes to `main`, and manual runs. Python 3.12 also runs lint,
+format, lock and workflow checks, builds the distribution, and verifies the base
+wheel's public imports and CLI in a clean environment without optional extras.
+CI uses the locked dependencies and does not require GPU access or model weights.
 
 Ordinary tests use small offline fixtures. Real pretrained-model checks require
 cached SAM3, UNI2-h, UNI2-SEAL and Virchow2 weights and CUDA. Select an available
