@@ -12,7 +12,7 @@ and release automation are not configured.
 
 ## Install
 
-The initial supported environment is Linux with Python 3.12. CUDA is needed for
+The initial supported environment is Linux with Python 3.12 and NumPy 2 or higher. CUDA is needed for
 practical pretrained-model execution. The dependency lock retains the tested
 PyTorch 2.12.1 / torchvision 0.27.1 stack; this project does not select a custom
 CUDA index. Follow PyTorch's platform requirements when preparing a machine.

@@ -8,7 +8,7 @@ dependencies = [
   "torch==2.12.1",
   "torchvision==0.27.1",
   "timm==1.0.24",
-  "numpy>=1.26,<2",
+  "numpy>=2",
   "pydantic>=2",
   "safetensors==0.6.2",
   "huggingface-hub==1.25.1",
@@ -18,7 +18,7 @@ dependencies = [
   "einops",
   "psutil",
   "scipy",
-  "sam3 @ git+https://github.com/zydtiger/sam3@46520ff4d8910ba83a247dd26733b12bba019017",
+  "sam3 @ git+https://github.com/zydtiger/sam3@c317802ba62d10176381f085543088ab8df270b1",
 ]
 
 [project.optional-dependencies]
