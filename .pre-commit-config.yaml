@@ -1,0 +1,48 @@
+minimum_prek_version: "0.4.14"
+default_install_hook_types: [pre-commit, pre-push, commit-msg]
+default_stages: [pre-commit]
+repos:
+  - repo: builtin
+    hooks:
+      - id: check-added-large-files
+      - id: detect-private-key
+      - id: check-merge-conflict
+      - id: check-toml
+      - id: check-yaml
+      - id: require-pattern
+        name: commit subject
+        stages: [commit-msg]
+        args: ['--multiline', '\A(Merge |(feat|fix|docs|refactor|test|build|conf): [a-z])']
+  - repo: local
+    hooks:
+      - id: uv-lock-check
+        name: lock consistency
+        entry: uv lock --check
+        language: system
+        pass_filenames: false
+        files: (^|/)pyproject\.toml$|^uv\.lock$
+      - id: ruff-check
+        name: ruff check
+        entry: uv run --no-sync ruff check src tests
+        language: system
+        pass_filenames: false
+        types: [python]
+      - id: ruff-format
+        name: ruff format
+        entry: uv run --no-sync ruff format
+        language: system
+        types: [python]
+      - id: mypy
+        name: type checks
+        entry: uv run --no-sync mypy src/tisam
+        language: system
+        pass_filenames: false
+        types: [python]
+        stages: [pre-push]
+      - id: tests
+        name: offline tests
+        entry: uv run --no-sync pytest -q
+        language: system
+        pass_filenames: false
+        types: [python]
+        stages: [pre-push]

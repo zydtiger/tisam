@@ -1,0 +1,35 @@
+model:
+  num_classes: 2
+  extra_encoder: hf-hub:MahmoodLab/UNI2-h
+  output_hw: [1024, 1024]
+  pos_embed_mode: none
+  sam_proj: false
+  num_layers: 6
+
+data:
+  class_names: [void, tissue_a, tissue_b]
+  train:
+    - path: ./data/train
+      metadata:
+        name: example
+        label_to_class_name: [void, tissue_a, tissue_b]
+  validation:
+    - path: ./data/validation
+      metadata:
+        name: example
+        label_to_class_name: [void, tissue_a, tissue_b]
+  test:
+    - path: ./data/test
+      metadata:
+        name: example
+        label_to_class_name: [void, tissue_a, tissue_b]
+
+name: tisam
+out_dir: ./runs
+device: cuda
+batch_size: 1
+accumulation_steps: 16
+num_workers: 0
+precision: bf16
+loss: median_frequency_weighted_ce
+epochs: 100
