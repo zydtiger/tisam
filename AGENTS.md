@@ -34,7 +34,7 @@ Mechanical checks live in .pre-commit-config.yaml. Install prek once with
 `prek run --all-files` and `prek run --all-files --hook-stage pre-push` before
 handoff. Real pretrained-model tests are opt-in and must not download weights
 as part of ordinary tests. GitHub Actions runs the pre-commit stage on Python
-3.12 and the pre-push stage on Python 3.9–3.14 under Linux without
+3.12 and the pre-push stage on Python 3.9, 3.12, and 3.14 under Linux without
 GPU or model downloads. Python 3.9 exercises the minimum inference dependencies;
 Mammoth training workflow tests run only on Python 3.12+. Python 3.12 also builds
 the distribution and verifies the base wheel in an isolated environment. Workflow validation belongs to the
