@@ -16,9 +16,7 @@ from tisam.cli import app
 from tisam.config import DataConfig, DatasetMetadata, DatasetSource, TrainConfig
 from tisam.data.tile_dataset import get_tile_loaders
 from tisam.inference import evaluate, segment_wsi
-
-if sys.version_info >= (3, 12):
-    from tisam.training import runner
+from tisam.training import runner
 
 
 @pytest.mark.parametrize("command", [[], ["train"], ["eval"], ["eval", "segment"]])
@@ -29,7 +27,6 @@ def test_cli_help(command):
     assert "Usage:" in result.output
 
 
-@pytest.mark.skipif(sys.version_info < (3, 12), reason="Training requires Python >=3.12")
 def test_train_cli_without_optional_dependencies():
     """Base installs report the training extra before loading a configuration."""
     code = """
@@ -123,7 +120,6 @@ def test_class_counts_survive_cache_write_and_cleanup_failure(small_model, tmp_p
     assert counts.sum() == 512
 
 
-@pytest.mark.skipif(sys.version_info < (3, 12), reason="Mammoth training requires Python >=3.12")
 def test_training_resume_and_evaluation(small_model, tmp_path, monkeypatch):
     model = small_model()
     cfg = dataset_config(tmp_path, model)
@@ -207,7 +203,6 @@ def test_wsi_writer_lock_excludes_other_processes(small_model, tmp_path, monkeyp
         assert not output.exists()
 
 
-@pytest.mark.skipif(sys.version_info < (3, 12), reason="Mammoth training requires Python >=3.12")
 def test_resume_continues_optimizer_and_scheduler(small_model, tmp_path, monkeypatch):
     model = small_model()
     cfg = dataset_config(tmp_path, model)

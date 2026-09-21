@@ -20,7 +20,7 @@ There is no uv workspace. The library does not depend on its repository layout.
   caches use a same-directory temporary file and atomic replacement without
   importing the training runtime. Python 3.9–3.10 pair legacy tifffile with
   Zarr 2; Python 3.11+ pair modern tifffile with Zarr 3.
-- `training` loads its public trainer on demand and requires Python 3.12+;
+- `training` loads its public trainer on demand and supports Python 3.9+;
   loss modules can be imported independently. It supplies steps, metrics and
   checkpoint semantics to Mammoth. Mammoth owns optimization-loop, AMP, accumulation, scheduler updates,
   callback lifecycle and atomic checkpoint publication. There is no distributed

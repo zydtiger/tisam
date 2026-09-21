@@ -12,9 +12,8 @@ automation is not configured.
 
 ## Install
 
-Model loading, prediction, and evaluation support Python 3.9 or newer,
-PyTorch 2.8 or newer, and NumPy 1.26 or newer. Training through Mammoth requires
-Python 3.12 or newer. Linux CI covers representative versions 3.9, 3.12, and 3.14;
+Model loading, training, prediction, and evaluation support Python 3.9 or newer,
+PyTorch 2.8 or newer, and NumPy 1.26 or newer. Linux CI covers representative versions 3.9, 3.12, and 3.14;
 the Python 3.9 job also checks PyTorch 2.8.0, torchvision 0.23.0, NumPy 1.26.4,
 tifffile 2024.8.28, and Zarr 2.18.2. Newer Python versions retain the modern
 dependency stack.
@@ -48,7 +47,7 @@ uv pip install '.[train,inference]'
 ```
 
 The base package provides `TiSAM`, `ModelConfig`, and checkpoint loading.
-`train` adds Mammoth on Python 3.12+, augmentation, datasets and TensorBoard logging;
+`train` adds Mammoth, augmentation, datasets and TensorBoard logging;
 `inference` adds RGB image/TIFF/WSI workflows. Optional workflows are not
 imported by `import tisam` or CLI help. SAM3, PrettyTerm, and Mammoth use immutable public Git
 references in the package metadata, so installation does not depend on uv source
@@ -188,8 +187,7 @@ for pull requests, pushes to `main`, and manual runs. Python 3.12 also runs lint
 format, lock and workflow checks, builds the distribution, and verifies the base
 wheel's public imports and CLI in a clean environment without optional extras.
 CI uses the locked dependencies, with explicit minimum-stack overrides on Python
-3.9, and does not require GPU access or model weights. The two Mammoth training
-workflow tests are skipped below Python 3.12; inference and loss tests still run.
+3.9, and does not require GPU access or model weights. Training, checkpoint resume, inference, and loss tests run on every CI version.
 
 Ordinary tests use small offline fixtures. Real pretrained-model checks require
 cached SAM3, UNI2-h, UNI2-SEAL and Virchow2 weights and CUDA. Select an available

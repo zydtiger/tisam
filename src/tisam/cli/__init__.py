@@ -1,10 +1,7 @@
 """Console entry point with optional workflows loaded only when invoked."""
 
-from __future__ import annotations
-
 import importlib
 import json
-import sys
 from pathlib import Path
 from typing import Annotated, Optional
 
@@ -37,8 +34,6 @@ def train_command(
     trusted: bool = False,
 ):
     """Train one configuration; resume its latest checkpoint by default."""
-    if sys.version_info < (3, 12):
-        raise typer.BadParameter("Training requires Python >=3.12 and tisam[train].")
     workflow("tisam.training.runner", "train").train(
         load_config(config),
         resume=resume,
