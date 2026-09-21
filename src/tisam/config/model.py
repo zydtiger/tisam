@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -12,7 +12,7 @@ class ModelConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid", frozen=True)
     num_classes: int = Field(gt=0)
-    total_queries: int | None = None
+    total_queries: Optional[int] = None
     d_model: int = 256
     num_layers: int = 6
     n_heads: int = 8
@@ -27,7 +27,7 @@ class ModelConfig(BaseModel):
         "hf-hub:MahmoodLab/UNI2-h", "hf-hub:paige-ai/Virchow2", "hf-hub:MahmoodLab/UNI2-SEAL"
     ] = Field()
     extra_shape: tuple[int, int] = (224, 224)
-    extra_embed_dim: int | None = None
+    extra_embed_dim: Optional[int] = None
     extra_finetune: bool = False
     extra_finetune_last_n_blocks: int = 2
     extra_feature_mode: Literal["final", "deep"] = "final"

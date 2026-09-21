@@ -9,7 +9,6 @@ from typing import Any, cast
 
 import tifffile
 import zarr
-from zarr.core.group import Group
 
 __all__ = ["TiffLevels", "open_tiff_levels"]
 
@@ -70,7 +69,7 @@ def open_tiff_levels(path: Path) -> TiffLevels:
     store: Any = tifffile.imread(path, aszarr=True)
     try:
         data = zarr.open(store, mode="r")
-        if not isinstance(data, Group):
+        if isinstance(data, zarr.Array):
             return TiffLevels((cast(zarr.Array, data),), store)
         levels = [
             level

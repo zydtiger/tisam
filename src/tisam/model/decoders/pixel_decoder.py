@@ -189,7 +189,7 @@ class PixelDecoder(nn.Module):
 
         if self.fpn_input_proj is None:
             return normalized_fpn
-        return [proj(feat) for proj, feat in zip(self.fpn_input_proj, normalized_fpn, strict=True)]
+        return [proj(feat) for proj, feat in zip(self.fpn_input_proj, normalized_fpn)]
 
     def _fuse_cross_attention_extra_features(
         self,

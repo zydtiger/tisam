@@ -283,7 +283,6 @@ class SAM3Encoder(nn.Module):
         for conv, position in zip(
             self.vision_backbone.convs,  # type: ignore
             position_encodings,
-            strict=True,
         ):
             feature = conv(trunk_feature)
             sam3_fpn.append(feature)

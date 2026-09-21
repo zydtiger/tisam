@@ -21,7 +21,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.12", "3.13", "3.14"]
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
     env:
       CUDA_VISIBLE_DEVICES: ""
       HF_HUB_OFFLINE: "1"
@@ -42,6 +42,12 @@ jobs:
 
       - name: Install project and all optional workflows
         run: uv sync --locked --all-extras --group dev
+
+      - name: Exercise the minimum inference stack
+        if: matrix.python-version == '3.9'
+        run: >-
+          uv pip install torch==2.8.0 torchvision==0.23.0 numpy==1.26.4
+          tifffile==2024.8.28 imagecodecs==2024.6.1 zarr==2.18.2 numcodecs==0.12.1
 
       - name: Run commit-stage hooks
         if: matrix.python-version == '3.12'

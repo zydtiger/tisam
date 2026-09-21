@@ -7,9 +7,9 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any, Literal, cast
 
-type NormalizedLTRB = tuple[float, float, float, float]
-type PixelLTRB = tuple[int, int, int, int]
-type RegionLTRB = tuple[float, float, float, float]
+NormalizedLTRB = tuple[float, float, float, float]
+PixelLTRB = tuple[int, int, int, int]
+RegionLTRB = tuple[float, float, float, float]
 RegionSpace = Literal["normalized", "pixels"]
 
 

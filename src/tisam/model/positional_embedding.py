@@ -139,9 +139,7 @@ class LearnableImagePosition(nn.Module):
             )
 
         positions: list[torch.Tensor] = []
-        for level_idx, (feature, weight) in enumerate(
-            zip(features, self.level_embeddings, strict=True)
-        ):
+        for level_idx, (feature, weight) in enumerate(zip(features, self.level_embeddings)):
             if feature.shape[1] != self.d_model:
                 raise ValueError(
                     f"Expected feature channels={self.d_model}, got {feature.shape[1]}."
