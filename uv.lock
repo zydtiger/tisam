@@ -1007,8 +1007,8 @@ wheels = [
 
 [[package]]
 name = "mammoth"
-version = "0.8.6"
-source = { git = "https://github.com/zydtiger/mammoth.git?rev=e6e41e3511ad10e2e4504b2768c9af45de3a769c#e6e41e3511ad10e2e4504b2768c9af45de3a769c" }
+version = "0.8.7"
+source = { git = "https://github.com/zydtiger/mammoth.git?rev=v0.8.7#fba04d7175054e59639ba0c2a97c9a4b6b26f0df" }
 dependencies = [
     { name = "typer-slim" },
     { name = "typing-extensions" },
@@ -3886,7 +3886,7 @@ requires-dist = [
     { name = "huggingface-hub", specifier = ">=0.36" },
     { name = "imagecodecs", marker = "extra == 'inference'", specifier = ">=2024.6.1" },
     { name = "imagecodecs", marker = "extra == 'train'", specifier = ">=2024.6.1" },
-    { name = "mammoth", extras = ["tensorboard", "torch"], marker = "extra == 'train'", git = "https://github.com/zydtiger/mammoth.git?rev=e6e41e3511ad10e2e4504b2768c9af45de3a769c" },
+    { name = "mammoth", extras = ["tensorboard", "torch"], marker = "extra == 'train'", git = "https://github.com/zydtiger/mammoth.git?rev=v0.8.7" },
     { name = "numcodecs", marker = "python_full_version < '3.11' and extra == 'inference'", specifier = "<0.16" },
     { name = "numcodecs", marker = "python_full_version < '3.11' and extra == 'train'", specifier = "<0.16" },
     { name = "numpy", specifier = ">=1.26" },
