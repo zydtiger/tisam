@@ -2,6 +2,7 @@ import os
 import stat
 import subprocess
 import sys
+from pathlib import Path
 
 import numpy as np
 import portalocker
@@ -103,6 +104,23 @@ def test_class_count_cache_publication(small_model, tmp_path, monkeypatch):
     assert stat.S_IMODE(cache.stat().st_mode) == 0o640
     assert len(synced_modes) == 2
     assert stat.S_ISREG(synced_modes[0]) and stat.S_ISDIR(synced_modes[1])
+
+
+def test_class_counts_survive_cache_write_and_cleanup_failure(small_model, tmp_path, monkeypatch):
+    """Read-only or failing storage must not discard already computed class counts."""
+    cfg = dataset_config(tmp_path, small_model())
+    loader, _ = get_tile_loaders(cfg)
+
+    def fail_sync(descriptor):
+        raise OSError("cache write failed")
+
+    def fail_cleanup(path, *args, **kwargs):
+        raise PermissionError("cache cleanup failed")
+
+    monkeypatch.setattr(os, "fsync", fail_sync)
+    monkeypatch.setattr(Path, "unlink", fail_cleanup)
+    counts, _ = loader.dataset.class_pixel_statistics()
+    assert counts.sum() == 512
 
 
 @pytest.mark.skipif(sys.version_info < (3, 12), reason="Mammoth training requires Python >=3.12")

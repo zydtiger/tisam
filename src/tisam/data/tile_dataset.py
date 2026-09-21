@@ -359,7 +359,8 @@ def _write_class_counts_cache(
         )
     finally:
         if temporary is not None:
-            temporary.unlink(missing_ok=True)
+            with suppress(OSError):
+                temporary.unlink(missing_ok=True)
 
 
 def _compute_class_pixel_statistics(
