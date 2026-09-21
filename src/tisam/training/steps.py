@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any, cast
@@ -10,7 +11,7 @@ import torch
 from mammoth.torch import StepContext, StepFunction, StepOutput
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, **({"slots": True} if sys.version_info >= (3, 10) else {}))
 class ArchitectureSteps:
     """Pair TiSAM's model-specific train and validation callables for Mammoth."""
 
@@ -18,7 +19,7 @@ class ArchitectureSteps:
     validation_step: StepFunction
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, **({"slots": True} if sys.version_info >= (3, 10) else {}))
 class DenseSegmentationSteps:
     """Apply one configured dense segmentation loss to model logits."""
 

@@ -2,43 +2,50 @@
 name = "tisam"
 version = "0.1.0"
 description = "Dual-encoder TiSAM architecture, training, and tissue segmentation"
-requires-python = ">=3.12"
+requires-python = ">=3.9"
 readme = "README.md"
 dependencies = [
-  "torch==2.12.1",
-  "torchvision==0.27.1",
+  "torch>=2.8.0",
+  "torchvision>=0.23.0",
   "timm==1.0.24",
-  "numpy>=2",
+  "numpy>=1.26",
   "pydantic>=2",
   "safetensors==0.6.2",
-  "huggingface-hub==1.25.1",
-  "prettyterm>=0.3.0",
+  "huggingface-hub>=0.36",
+  "prettyterm @ git+https://github.com/zydtiger/prettyterm.git@76a34ed70afd5f12ecbc75d6f97c5e9b6ad142ee",
   "typer>=0.21.2,<0.22",
   "pyyaml>=6",
   "einops",
   "psutil",
   "scipy",
-  "sam3 @ git+https://github.com/zydtiger/sam3@c317802ba62d10176381f085543088ab8df270b1",
+  "sam3 @ git+https://github.com/zydtiger/sam3@34b5c4d6e02015863585cf6cacb9432ccda4e0e4",
 ]
 
 [project.optional-dependencies]
 train = [
-  "mammoth[tensorboard,torch] @ git+https://github.com/zydtiger/mammoth.git@1193a787af6251c3577fc2732cc77ad4d1143b3a",
+  "mammoth[tensorboard,torch] @ git+https://github.com/zydtiger/mammoth.git@v0.8.7",
   "albumentations>=2,<3",
   "opencv-python-headless<4.12",
   "pillow",
-  "tifffile>=2025.10.16",
-  "imagecodecs>=2025.11.11",
-  "zarr>=3.1.5",
+  "tifffile>=2024.8.28,<2025.5.21; python_version < '3.11'",
+  "tifffile>=2025.5.21; python_version >= '3.11'",
+  "imagecodecs>=2024.6.1",
+  "zarr>=2.18.2,<3; python_version < '3.11'",
+  "numcodecs<0.16; python_version < '3.11'",
+  "zarr>=3.1.5; python_version >= '3.11'",
+  "portalocker>=3.2",
 ]
 inference = [
-  "mammoth @ git+https://github.com/zydtiger/mammoth.git@1193a787af6251c3577fc2732cc77ad4d1143b3a",
   "albumentations>=2,<3",
   "opencv-python-headless<4.12",
   "pillow",
-  "tifffile>=2025.10.16",
-  "imagecodecs>=2025.11.11",
-  "zarr>=3.1.5",
+  "tifffile>=2024.8.28,<2025.5.21; python_version < '3.11'",
+  "tifffile>=2025.5.21; python_version >= '3.11'",
+  "imagecodecs>=2024.6.1",
+  "zarr>=2.18.2,<3; python_version < '3.11'",
+  "numcodecs<0.16; python_version < '3.11'",
+  "zarr>=3.1.5; python_version >= '3.11'",
+  "portalocker>=3.2",
 ]
 
 [project.scripts]
@@ -59,10 +66,10 @@ allow-direct-references = true
 packages = ["src/tisam"]
 
 [dependency-groups]
-dev = ["pytest>=9", "ruff>=0.15", "mypy>=1.19", "types-PyYAML"]
+dev = ["pytest>=8.4", "ruff>=0.15", "mypy>=1.19", "types-PyYAML"]
 
 [tool.ruff]
-target-version = "py312"
+target-version = "py39"
 line-length = 100
 
 [tool.ruff.lint]

@@ -2,14 +2,15 @@
 
 from __future__ import annotations
 
-import fcntl
 import hashlib
 import json
 import os
 import shutil
 from pathlib import Path
+from typing import Any
 
 import numpy as np
+import portalocker
 import tifffile
 import torch
 import zarr
@@ -89,25 +90,24 @@ def segment_wsi(
         (work / "identity.json").write_text(json.dumps(identity, indent=2) + "\n")
     # An exclusive lock prevents concurrent writers from corrupting recovery state.
     lock = work / "writer.lock"
-    descriptor = os.open(lock, os.O_CREAT | os.O_RDWR, 0o600)
-    try:
-        fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except BaseException:
-        os.close(descriptor)
-        raise
+    writer_lock = portalocker.Lock(lock, mode="a+b", timeout=0)
+    writer_lock.acquire()
     was_training = model.training
     try:
         with WSIDataset(source, mean, std, patch_size, effective_size) as dataset:
-            group = zarr.open_group(work / "patches.zarr", mode="a", zarr_format=2)
+            format_key = "zarr_version" if zarr.__version__.split(".")[0] == "2" else "zarr_format"
+            format_options: dict[str, Any] = {format_key: 2}
+            group: Any = zarr.open_group(work / "patches.zarr", mode="a", **format_options)
+            require_array = getattr(group, "require_array", None) or group.require_dataset
             dtype = "uint8" if model.total_classes <= 256 else "uint16"
-            mask = group.require_array(
+            mask = require_array(
                 "mask",
                 shape=(height, width),
                 chunks=(effective_size, effective_size),
                 dtype=dtype,
                 fill_value=0,
             )
-            completed = group.require_array(
+            completed = require_array(
                 "completed", shape=(len(dataset),), chunks=(1,), dtype="bool", fill_value=False
             )
             pending = np.flatnonzero(~np.asarray(completed[:], dtype=bool)).tolist()
@@ -169,6 +169,6 @@ def segment_wsi(
             os.link(temporary, output)
     finally:
         model.train(was_training)
-        os.close(descriptor)
+        writer_lock.release()
     shutil.rmtree(work)
     return output

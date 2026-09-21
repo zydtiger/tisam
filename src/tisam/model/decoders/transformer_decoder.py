@@ -299,8 +299,10 @@ class Mask2FormerTransformerDecoder(nn.Module):
             self.rope_frequencies_2,
             self.rope_frequencies_3,
         )
+        if len(self.feature_shapes) != len(frequencies):
+            raise ValueError("Feature shapes and RoPE frequencies must have equal lengths.")
         for level_idx, ((height, width), frequency) in enumerate(
-            zip(self.feature_shapes, frequencies, strict=True)
+            zip(self.feature_shapes, frequencies)
         ):
             expected_shape = (height * width, self.d_model // self.n_heads // 2)
             if self.use_rope and frequency.shape != expected_shape:
@@ -331,7 +333,7 @@ class Mask2FormerTransformerDecoder(nn.Module):
                 f"Expected {len(multi_scale_features)} positional feature levels, got "
                 f"{len(multi_scale_pos)}."
             )
-        for feature, position in zip(multi_scale_features, multi_scale_pos, strict=True):
+        for feature, position in zip(multi_scale_features, multi_scale_pos):
             if feature.shape != position.shape:
                 raise ValueError(
                     "Image positional tensors must match feature shapes; "

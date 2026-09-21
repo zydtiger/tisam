@@ -1,12 +1,48 @@
+import os
+import stat
+import subprocess
+import sys
+from pathlib import Path
+
 import numpy as np
+import portalocker
 import pytest
 import tifffile
 import torch
 from PIL import Image
+from typer.testing import CliRunner
 
+from tisam.cli import app
 from tisam.config import DataConfig, DatasetMetadata, DatasetSource, TrainConfig
+from tisam.data.tile_dataset import get_tile_loaders
 from tisam.inference import evaluate, segment_wsi
 from tisam.training import runner
+
+
+@pytest.mark.parametrize("command", [[], ["train"], ["eval"], ["eval", "segment"]])
+def test_cli_help(command):
+    """Build Typer's command tree on every supported Python version."""
+    result = CliRunner().invoke(app, [*command, "--help"])
+    assert result.exit_code == 0, result.output
+    assert "Usage:" in result.output
+
+
+def test_train_cli_without_optional_dependencies():
+    """Base installs report the training extra before loading a configuration."""
+    code = """
+import sys
+class BlockMammoth:
+    def find_spec(self, fullname, path=None, target=None):
+        if fullname.split('.')[0] == 'mammoth':
+            raise ModuleNotFoundError('No module named mammoth', name='mammoth')
+sys.meta_path.insert(0, BlockMammoth())
+from typer.testing import CliRunner
+from tisam.cli import app
+result = CliRunner().invoke(app, ['train', 'missing.yaml'])
+assert result.exit_code == 2, (result.exit_code, result.exception, result.output)
+assert 'tisam[train]' in result.output and 'mammoth' in result.output, result.output
+"""
+    subprocess.run([sys.executable, "-c", code], check=True)
 
 
 def dataset_config(tmp_path, model):
@@ -40,6 +76,48 @@ def dataset_config(tmp_path, model):
         accumulation_steps=1,
         patience=10,
     )
+
+
+@pytest.mark.skipif(os.name != "posix", reason="POSIX permission and directory fsync contract")
+def test_class_count_cache_publication(small_model, tmp_path, monkeypatch):
+    """Retain shared-cache permissions and flush both data and its directory entry."""
+    cfg = dataset_config(tmp_path, small_model())
+    loader, _ = get_tile_loaders(cfg)
+    synced_modes = []
+    fsync = os.fsync
+
+    def record_sync(descriptor):
+        synced_modes.append(os.fstat(descriptor).st_mode)
+        fsync(descriptor)
+
+    monkeypatch.setattr(os, "fsync", record_sync)
+    previous_umask = os.umask(0o027)
+    try:
+        counts, _ = loader.dataset.class_pixel_statistics()
+    finally:
+        os.umask(previous_umask)
+    assert counts.sum() == 512
+    cache = cfg.data.train[0].path / "class_counts.json"
+    assert stat.S_IMODE(cache.stat().st_mode) == 0o640
+    assert len(synced_modes) == 2
+    assert stat.S_ISREG(synced_modes[0]) and stat.S_ISDIR(synced_modes[1])
+
+
+def test_class_counts_survive_cache_write_and_cleanup_failure(small_model, tmp_path, monkeypatch):
+    """Read-only or failing storage must not discard already computed class counts."""
+    cfg = dataset_config(tmp_path, small_model())
+    loader, _ = get_tile_loaders(cfg)
+
+    def fail_sync(descriptor):
+        raise OSError("cache write failed")
+
+    def fail_cleanup(path, *args, **kwargs):
+        raise PermissionError("cache cleanup failed")
+
+    monkeypatch.setattr(os, "fsync", fail_sync)
+    monkeypatch.setattr(Path, "unlink", fail_cleanup)
+    counts, _ = loader.dataset.class_pixel_statistics()
+    assert counts.sum() == 512
 
 
 def test_training_resume_and_evaluation(small_model, tmp_path, monkeypatch):
@@ -90,6 +168,39 @@ def test_wsi_edges_and_resume(small_model, tmp_path, monkeypatch):
         assert tif.pages[0].compression.name == "ZSTD"
     with pytest.raises(FileExistsError):
         segment_wsi(model, source, output, patch_size=16, effective_size=8)
+
+
+def test_wsi_writer_lock_excludes_other_processes(small_model, tmp_path, monkeypatch):
+    """Keep scratch exclusive during inference and release it after interruption."""
+    model = small_model()
+    source = tmp_path / "rgb.png"
+    Image.fromarray(np.full((16, 16, 3), 100, dtype=np.uint8)).save(source)
+    output = tmp_path / "mask.tif"
+    lock = tmp_path / "mask.tif.work" / "writer.lock"
+
+    def check_lock_then_interrupt(images):
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                "import portalocker, sys\n"
+                "try:\n"
+                "    with portalocker.Lock(sys.argv[1], mode='a+b', timeout=0): pass\n"
+                "except portalocker.exceptions.LockException:\n"
+                "    sys.exit(3)\n",
+                str(lock),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 3, result.stderr
+        raise RuntimeError("interrupted with lock held")
+
+    monkeypatch.setattr(model, "forward", check_lock_then_interrupt)
+    with pytest.raises(RuntimeError, match="interrupted with lock held"):
+        segment_wsi(model, source, output, patch_size=16, effective_size=8)
+    with portalocker.Lock(lock, mode="a+b", timeout=0):
+        assert not output.exists()
 
 
 def test_resume_continues_optimizer_and_scheduler(small_model, tmp_path, monkeypatch):

@@ -12,12 +12,18 @@ automation is not configured.
 
 ## Install
 
-Linux with Python 3.12–3.14 and NumPy 2 or higher is covered by the offline
-test matrix. Real pretrained-model execution is verified on Python 3.12.
-CUDA is needed for practical pretrained-model execution. The dependency lock
-retains the tested PyTorch 2.12.1 / torchvision 0.27.1 stack; this project does
-not select a custom CUDA index. Follow PyTorch's platform requirements when
-preparing a machine.
+Model loading, training, prediction, and evaluation support Python 3.9 or newer,
+PyTorch 2.8 or newer, and NumPy 1.26 or newer. Linux CI covers representative versions 3.9, 3.12, and 3.14;
+the Python 3.9 job also checks PyTorch 2.8.0, torchvision 0.23.0, NumPy 1.26.4,
+tifffile 2024.8.28, and Zarr 2.18.2. Newer Python versions retain the modern
+dependency stack.
+CUDA is needed for practical pretrained-model execution. This project does not
+select a custom CUDA index; follow PyTorch's platform requirements.
+
+Python 3.9–3.10 use tifffile before 2025.5.21 with Zarr 2; Python 3.11+ use
+tifffile 2025.5.21+ with Zarr 3. These pairs preserve lazy TIFF reads. WSI writer
+locks use portalocker rather than a Unix-only API; Windows execution still needs
+platform validation beyond the Linux test matrix.
 
 Install directly from GitHub into an existing environment:
 
@@ -43,7 +49,7 @@ uv pip install '.[train,inference]'
 The base package provides `TiSAM`, `ModelConfig`, and checkpoint loading.
 `train` adds Mammoth, augmentation, datasets and TensorBoard logging;
 `inference` adds RGB image/TIFF/WSI workflows. Optional workflows are not
-imported by `import tisam` or CLI help. SAM3 and Mammoth use immutable public Git
+imported by `import tisam` or CLI help. SAM3, PrettyTerm, and Mammoth use immutable public Git
 references in the package metadata, so installation does not depend on uv source
 overrides or a second local checkout. Git is required to resolve those sources.
 
@@ -176,11 +182,12 @@ prek run --all-files --hook-stage pre-push
 uv build
 ```
 
-GitHub Actions runs offline tests and type checks on Python 3.12, 3.13 and 3.14
+GitHub Actions runs offline tests and type checks on Python 3.9, 3.12, and 3.14
 for pull requests, pushes to `main`, and manual runs. Python 3.12 also runs lint,
 format, lock and workflow checks, builds the distribution, and verifies the base
 wheel's public imports and CLI in a clean environment without optional extras.
-CI uses the locked dependencies and does not require GPU access or model weights.
+CI uses the locked dependencies, with explicit minimum-stack overrides on Python
+3.9, and does not require GPU access or model weights. Training, checkpoint resume, inference, and loss tests run on every CI version.
 
 Ordinary tests use small offline fixtures. Real pretrained-model checks require
 cached SAM3, UNI2-h, UNI2-SEAL and Virchow2 weights and CUDA. Select an available

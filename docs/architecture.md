@@ -16,13 +16,18 @@ There is no uv workspace. The library does not depend on its repository layout.
 - `data` owns TIFF resource lifetime, patch geometry, raw-label semantics,
   augmentation and class-count caching. `TileDataset` keeps separate supervision
   and metric masks before remapping raw labels into canonical class IDs.
-- `training` supplies TiSAM losses, steps, metrics and checkpoint semantics to
-  Mammoth. Mammoth owns optimization-loop, AMP, accumulation, scheduler updates,
+- Model, data, and inference imports support Python 3.9+. Dataset class-count
+  caches use a same-directory temporary file and atomic replacement without
+  importing the training runtime. Python 3.9–3.10 pair legacy tifffile with
+  Zarr 2; Python 3.11+ pair modern tifffile with Zarr 3.
+- `training` loads its public trainer on demand and supports Python 3.9+;
+  loss modules can be imported independently. It supplies steps, metrics and
+  checkpoint semantics to Mammoth. Mammoth owns optimization-loop, AMP, accumulation, scheduler updates,
   callback lifecycle and atomic checkpoint publication. There is no distributed
   launcher or topology configuration.
 - `inference` owns RGB prediction, tile validation/test, and WSI assembly. It
   has no training-runtime import. WSI scratch uses chunked Zarr arrays, a
-  completion bitmap, source identity and a model fingerprint. The Linux advisory
+  completion bitmap, source identity and a model fingerprint. The nonblocking portalocker
   writer lock is released by process exit, allowing recovery after termination.
 - `cli` registers only train, eval validate, eval test and eval segment.
   Optional modules load when invoked; base imports and CLI help do not require

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Optional
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -21,7 +21,7 @@ class TrainConfig(BaseModel):
     out_dir: Path = Path("runs")
     name: str = "tisam"
     device: str = "cuda"
-    sam3_checkpoint: Path | None = None
+    sam3_checkpoint: Optional[Path] = None
     seed: int = Field(default=42, ge=0)
     epochs: int = Field(default=100, gt=0)
     batch_size: int = Field(default=1, gt=0)

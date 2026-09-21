@@ -1,11 +1,9 @@
 """Console entry point with optional workflows loaded only when invoked."""
 
-from __future__ import annotations
-
 import importlib
 import json
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Optional
 
 import typer
 
@@ -31,12 +29,12 @@ def workflow(module: str, extra: str):
 def train_command(
     config: Path,
     resume: Annotated[bool, typer.Option("--resume/--no-resume")] = True,
-    checkpoint: Path | None = None,
-    initialize_from: Path | None = None,
+    checkpoint: Optional[Path] = None,
+    initialize_from: Optional[Path] = None,
     trusted: bool = False,
 ):
     """Train one configuration; resume its latest checkpoint by default."""
-    workflow("tisam.training", "train").train(
+    workflow("tisam.training.runner", "train").train(
         load_config(config),
         resume=resume,
         checkpoint=checkpoint,

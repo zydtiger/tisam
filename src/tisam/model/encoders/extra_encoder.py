@@ -12,7 +12,7 @@ import hashlib
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal, cast
+from typing import Any, Literal, Union, cast
 
 import timm
 import torch
@@ -29,7 +29,7 @@ _EXTRA_ENCODER_PATCH_TOKENS = _EXTRA_ENCODER_PATCH_GRID_SIZE**2
 
 ExtraFeatureMode = Literal["final", "deep"]
 ExtraFeaturePyramid = tuple[torch.Tensor, torch.Tensor, torch.Tensor]
-ExtraFeatures = torch.Tensor | ExtraFeaturePyramid
+ExtraFeatures = Union[torch.Tensor, ExtraFeaturePyramid]
 
 
 @dataclass(frozen=True)

@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
+from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
+from uuid import uuid4
 
 import albumentations
 import cv2
@@ -14,7 +17,6 @@ import numpy as np
 import tifffile
 import torch
 from albumentations.pytorch import ToTensorV2
-from mammoth.core import atomic_write_json
 from PIL import Image
 from prettyterm import get_logger
 from torch.utils.data import DataLoader, Dataset, Sampler, Subset, get_worker_info
@@ -334,13 +336,31 @@ def _write_class_counts_cache(
     )
     payload = dict(content)
     payload["integrity_sha256"] = _class_counts_cache_digest(content)
+    temporary = None
     try:
-        atomic_write_json(cache_path, payload, mode=0o666)
+        candidate = cache_path.with_name(f".{cache_path.name}.{uuid4().hex}.tmp")
+        descriptor = os.open(candidate, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o666)
+        temporary = candidate
+        with os.fdopen(descriptor, "w", encoding="utf-8") as f:
+            json.dump(payload, f)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(temporary, cache_path)
+        with suppress(OSError):
+            directory = os.open(cache_path.parent, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+            try:
+                os.fsync(directory)
+            finally:
+                os.close(directory)
         logger.info(f"Wrote class-count cache to {cache_path}.")
     except OSError as exc:
         logger.warning(
             f"Could not write class-count cache {cache_path}; continuing without it: {exc}"
         )
+    finally:
+        if temporary is not None:
+            with suppress(OSError):
+                temporary.unlink(missing_ok=True)
 
 
 def _compute_class_pixel_statistics(
