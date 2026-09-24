@@ -176,8 +176,29 @@ from `void`.
 
 Training is single-process and supports AMP, gradient accumulation, separate
 encoder learning rates, early stopping, optional `torch.compile`, resumable
-`.pt` checkpoints and best `.safetensors` weights. TensorBoard events live under
-`runs/<name>/logs`; the resolved configuration lives beside `checkpoints/`.
+`.pt` checkpoints and best `.safetensors` weights. Every invocation creates an
+attempt under `runs/<name>/logs/executions/<execution-id>/` containing:
+
+- `rank-0.jsonl`: Mammoth lifecycle, progress, epoch metrics, and checkpoint
+  publication receipts (paths, roles, epochs, byte sizes, SHA-256 hashes, and
+  retired paths).
+- `rank-0.log`: Python logging diagnostics, including setup failures.
+- `execution.json` and `config.json`: attempt identity, resume provenance, and
+  the resolved configuration snapshot.
+- `tensorboard/`: dense metric history. Point TensorBoard at `runs/<name>/logs`
+  to include all attempts and older runs.
+
+JSONL progress records include `batches_per_second`, an epoch-to-date rate.
+Mammoth's native `throughput` counts accumulation windows/s during training and
+batches/s during validation; `throughput_unit` identifies which. Batch rates use
+the actual consumed batch count, including a shorter final accumulation window.
+With batch size one, batches/s also equals tiles/s. Epoch summaries retain their
+full metric mapping as `epoch_metrics`.
+
+The convenience `runs/<name>/config.json` contains the latest attempt's config;
+older attempt snapshots remain intact. A portable file lock prevents two TiSAM
+training invocations from writing the same run concurrently. New logging takes
+effect on the next invocation; a running process keeps its original logging setup.
 Use the same training configuration and epoch horizon when resuming. Weight
 initialization is the supported way to change the training objective or dataset.
 See [the checkpoint contract](docs/architecture.md) for details.
