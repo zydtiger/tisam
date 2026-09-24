@@ -18,7 +18,8 @@ the Python 3.9 job also checks PyTorch 2.8.0, torchvision 0.23.0, NumPy 1.26.4,
 tifffile 2024.8.28, and Zarr 2.18.2. Newer Python versions retain the modern
 dependency stack.
 CUDA is needed for practical pretrained-model execution. This project does not
-select a custom CUDA index; follow PyTorch's platform requirements.
+select a CUDA backend in its package metadata; select one with uv when installing
+as described below.
 
 Python 3.9–3.10 use tifffile before 2025.5.21 with Zarr 2; Python 3.11+ use
 tifffile 2025.5.21+ with Zarr 3. These pairs preserve lazy TIFF reads. WSI writer
@@ -52,6 +53,66 @@ The base package provides `TiSAM`, `ModelConfig`, and checkpoint loading.
 imported by `import tisam` or CLI help. SAM3, PrettyTerm, and Mammoth use immutable public Git
 references in the package metadata, so installation does not depend on uv source
 overrides or a second local checkout. Git is required to resolve those sources.
+
+### Select a PyTorch backend
+
+Use `uv pip install --torch-backend` to select the PyTorch wheel index, including
+when TiSAM is a dependency of a downstream package. These examples use uv 0.10.10
+and an existing environment with the desired Python version. For a typical
+installation on the target GPU machine with Python 3.10+, start with `auto`.
+Use `cu128` for Python 3.9, and an explicit backend for CI or deployments that
+require a fixed backend:
+
+```sh
+# Recommended for installation on the target GPU machine with Python 3.10+.
+uv pip install --torch-backend=auto 'tisam[train,inference] @ git+https://github.com/zydtiger/tisam.git'
+
+# CUDA 13.0: requires a compatible Python 3.10+ environment.
+uv pip install --torch-backend=cu130 'tisam[train,inference] @ git+https://github.com/zydtiger/tisam.git'
+
+# CUDA 12.8: also supports Python 3.9 with PyTorch 2.8.0 / torchvision 0.23.0.
+uv pip install --torch-backend=cu128 'tisam[train,inference] @ git+https://github.com/zydtiger/tisam.git'
+
+# The same option works when installing from the project root.
+uv pip install --torch-backend=auto '.[train,inference]'
+```
+
+Omit `[train,inference]` for the base package. Use a fresh environment for a new
+backend, or add `--reinstall-package torch --reinstall-package torchvision` when
+switching an existing installation. Add `--dry-run` to preview dependency
+resolution without installing packages. The environment variable form is
+equivalent, for example `UV_TORCH_BACKEND=cu128 uv pip install '.[train,inference]'`.
+
+Dependency resolution follows these rules:
+
+- Without `--torch-backend` or `UV_TORCH_BACKEND`, uv uses the configured indexes
+  (normally PyPI). TiSAM does not guarantee a default CUDA version or detect the
+  GPU. `cu12` and `cu13` are not TiSAM extras.
+- An explicit backend selects the index for PyTorch packages, including
+  transitive `torch` and `torchvision` dependencies. Other dependencies continue
+  to use the configured indexes. All Python, platform, package, and selected-extra
+  constraints still apply; the backend does not pin a PyTorch version.
+- Python 3.9 with `cu128` resolves to PyTorch 2.8.0 and torchvision 0.23.0.
+  Python 3.9 with `cu130` fails because compatible `cp39` wheels are unavailable;
+  uv does not fall back to another backend or upgrade Python. A downstream
+  `requires-python = ">=3.9"` is a minimum requirement, not a pin to Python 3.9.
+- `--torch-backend=auto` detects the local GPU/driver and selects a backend, with
+  CPU fallback when no supported GPU is detected. It then resolves dependencies
+  within that backend; it does not switch backends if the Python or dependency
+  constraints cannot be satisfied. For example, Python 3.9 still fails if `auto`
+  selects `cu130`; specify `cu128` instead. Successful resolution alone does not
+  verify that the GPU and driver can execute the selected build.
+- In uv 0.10.10, this option is available through the `uv pip` interface, not
+  `uv sync`. `uv pip install` resolves the package metadata without using this
+  repo's `uv.lock`; it does not update a downstream lockfile. The development
+  `uv sync` command above uses the locked dependencies. A later `uv sync` or
+  synchronizing `uv run` can replace a backend installed with `uv pip`; use
+  `uv run --no-sync` to run that environment without synchronization.
+
+See the [uv PyTorch guide](https://docs.astral.sh/uv/guides/integration/pytorch/)
+for backend selection and project-level index configuration.
+
+### Pretrained weights
 
 Pretrained SAM3, UNI2-h, Virchow2 and UNI2-SEAL weights remain external. Obtain
 access from their respective providers and authenticate with `hf auth login`
