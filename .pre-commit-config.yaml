@@ -29,25 +29,25 @@ repos:
         files: (^|/)pyproject\.toml$|^uv\.lock$
       - id: ruff-check
         name: ruff check
-        entry: uv run --no-sync ruff check src tests
+        entry: uv run --locked --only-group dev ruff check src tests
         language: system
         pass_filenames: false
         types: [python]
       - id: ruff-format
         name: ruff format
-        entry: uv run --no-sync ruff format
+        entry: uv run --locked --only-group dev ruff format
         language: system
         types: [python]
       - id: mypy
         name: type checks
-        entry: uv run --no-sync mypy src/tisam
+        entry: uv run --locked --all-extras --group dev mypy src/tisam
         language: system
         pass_filenames: false
         types: [python]
         stages: [pre-push]
       - id: tests
         name: offline tests
-        entry: uv run --no-sync pytest -q
+        entry: uv run --locked --all-extras --group dev pytest -q
         language: system
         pass_filenames: false
         types: [python]

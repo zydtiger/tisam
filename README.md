@@ -184,6 +184,12 @@ prek run --all-files --hook-stage pre-push
 uv build
 ```
 
+Hooks automatically prepare their dependencies from `uv.lock` and fail if the
+lockfile needs updating. Commit-stage Ruff hooks install only the `dev` group;
+type checks and offline tests run only at pre-push and include all optional
+dependencies. CI disables hook synchronization after explicitly preparing its
+environment to preserve the minimum-stack overrides.
+
 GitHub Actions runs offline tests and type checks on Python 3.9, 3.12, and 3.14
 for pull requests, pushes to `main`, and manual runs. Python 3.12 also runs lint,
 format, lock and workflow checks, builds the distribution, and verifies the base
