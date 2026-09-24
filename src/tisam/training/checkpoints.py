@@ -9,6 +9,7 @@ from typing import Any, cast
 
 import numpy as np
 import torch
+from mammoth.core.artifacts import ArtifactReceipt, ArtifactVerificationError, open_artifact_session
 from mammoth.torch import (
     CheckpointInspection,
     RestoreOptions,
@@ -51,6 +52,7 @@ class TrainingCheckpointPolicy:
         self.early_stopping = early_stopping
         self.config = config
         self.scaler = None
+        self.resume_receipt: ArtifactReceipt | None = None
         self.metadata = model_metadata(
             config.model,
             class_names=config.data.class_names,
@@ -60,7 +62,11 @@ class TrainingCheckpointPolicy:
 
     def read(self, path: Path) -> dict:
         """Reject historical training state and changed resume contracts."""
-        payload = torch.load(path, map_location="cpu", weights_only=True)
+        with open_artifact_session(path) as artifact:
+            if self.resume_receipt is not None and artifact.receipt != self.resume_receipt:
+                raise ArtifactVerificationError("Resume checkpoint changed after attempt creation")
+            with artifact.open_reader() as reader:
+                payload = torch.load(reader, map_location="cpu", weights_only=True)
         if payload.get("training_schema") != 1:
             raise ValueError(
                 "Cross-project training resume is unsupported; import model weights instead"

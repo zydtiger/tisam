@@ -1,3 +1,5 @@
+import hashlib
+import json
 import os
 import pickle
 import stat
@@ -11,6 +13,7 @@ import portalocker
 import pytest
 import tifffile
 import torch
+from mammoth.core.artifacts import ArtifactVerificationError, inspect_artifact
 from PIL import Image
 from torch.utils.data import DataLoader
 from typer.testing import CliRunner
@@ -21,6 +24,7 @@ from tisam.data.tile_dataset import get_tile_loaders
 from tisam.data.wsi_dataset import WSIDataset
 from tisam.inference import evaluate, segment_wsi
 from tisam.training import runner
+from tisam.training.checkpoints import TrainingCheckpointPolicy
 
 
 @pytest.mark.parametrize("command", [[], ["train"], ["eval"], ["eval", "segment"]])
@@ -132,13 +136,114 @@ def test_training_resume_and_evaluation(small_model, tmp_path, monkeypatch):
     assert result.state.epoch == 1
     checkpoint = runner.latest_checkpoint(cfg.out_dir / cfg.name / "checkpoints")
     assert checkpoint is not None
+    attempts = cfg.out_dir / cfg.name / "logs" / "executions"
+    first = next(attempts.iterdir())
+    records = [json.loads(line) for line in (first / "rank-0.jsonl").read_text().splitlines()]
+    assert records[0]["event"] == "process_started"
+    assert records[-1]["event"] == "process_completed" and records[-1]["exit_code"] == 0
+    progress = [record for record in records if record["event"] == "progress"]
+    assert {record["phase"] for record in progress} == {"train", "validation"}
+    assert all(record["batches_per_second"] > 0 for record in progress)
+    summaries = [record for record in records if "epoch_metrics" in record]
+    assert len(summaries) == cfg.epochs * 2
+    for record in summaries:
+        phase = record["phase"]
+        expected = (result.training_history if phase == "train" else result.validation_history)[
+            record["epoch"]
+        ]
+        assert record["epoch_metrics"] == {
+            f"{phase}/{name}": value for name, value in expected.items()
+        }
+    publications = [record for record in records if "checkpoints" in record]
+    assert len(publications) == cfg.epochs
+    latest = next(item for item in publications[-1]["checkpoints"] if item["role"] == "latest")
+    assert latest["sha256"] == hashlib.sha256(checkpoint.read_bytes()).hexdigest()
+    assert latest["size_bytes"] == checkpoint.stat().st_size
+    assert publications[-1]["retired"]
+    first_metadata = json.loads((first / "execution.json").read_text())
+    assert Path(first_metadata["config_reference"]) == (first / "config.json").resolve()
+    assert (first / "rank-0.log").exists()
+    assert list((first / "tensorboard").glob("events.*"))
     resumed = runner.train(cfg)
     assert resumed.state.optimizer_step == result.state.optimizer_step
+    second = next(path for path in attempts.iterdir() if path != first)
+    metadata = json.loads((second / "execution.json").read_text())
+    assert metadata["previous_execution_id"] == first.name
+    assert metadata["resume_checkpoint_sha256"] == latest["sha256"]
+    assert metadata["starting_global_step"] == result.state.global_step
+    assert metadata["starting_epoch"] == cfg.epochs
+    assert json.loads((second / "rank-0.jsonl").read_text().splitlines()[-1])["exit_code"] == 0
     metrics = evaluate(model, cfg, split="test")
     assert metrics["split"] == "Test"
     assert {"accuracy", "precision", "recall", "f1"} <= metrics.keys()
     with pytest.raises(ValueError, match="new run name"):
         runner.train(cfg, resume=False)
+    initialized = cfg.model_copy(update={"name": "initialized", "epochs": 1})
+    best = checkpoint.parent / "best.safetensors"
+    runner.train(initialized, initialize_from=best)
+    initialization_log = next(
+        (initialized.out_dir / initialized.name / "logs" / "executions").glob("*/rank-0.jsonl")
+    )
+    initialization_records = [
+        json.loads(line) for line in initialization_log.read_text().splitlines()
+    ]
+    source = next(
+        record
+        for record in initialization_records
+        if record.get("task_id") == "initialization-source"
+    )
+    assert source["artifacts"][0]["sha256"] == hashlib.sha256(best.read_bytes()).hexdigest()
+
+
+@pytest.mark.parametrize("interrupted", [False, True])
+def test_training_setup_failure_is_logged_and_unlocks(
+    small_model, tmp_path, monkeypatch, interrupted
+):
+    """Setup failures close logs and allow another attempt without stale ownership."""
+    cfg = dataset_config(tmp_path, small_model())
+
+    def fail_setup(*args, **kwargs):
+        if interrupted:
+            raise KeyboardInterrupt
+        raise RuntimeError("deliberate loader failure")
+
+    monkeypatch.setattr(runner, "get_tile_loaders", fail_setup)
+    for _ in range(2):
+        with pytest.raises(KeyboardInterrupt if interrupted else RuntimeError):
+            runner.train(cfg)
+    attempts = list((cfg.out_dir / cfg.name / "logs" / "executions").iterdir())
+    assert len(attempts) == 2
+    for attempt in attempts:
+        records = [json.loads(line) for line in (attempt / "rank-0.jsonl").read_text().splitlines()]
+        assert any(record["event"] == "phase_failed" for record in records)
+        assert records[-1]["event"] == "process_completed"
+        assert records[-1]["exit_code"] == (130 if interrupted else 1)
+        message = "Training interrupted" if interrupted else "deliberate loader failure"
+        assert message in (attempt / "rank-0.log").read_text()
+
+
+def test_training_run_lock_prevents_concurrent_attempt(small_model, tmp_path):
+    """A competing producer must fail before creating logs or touching checkpoints."""
+    cfg = dataset_config(tmp_path, small_model())
+    directory = cfg.out_dir / cfg.name
+    directory.mkdir(parents=True)
+    with portalocker.Lock(directory / ".training.lock", mode="a+b", timeout=0):
+        with pytest.raises(portalocker.exceptions.LockException):
+            runner.train(cfg)
+    assert not (directory / "logs").exists()
+
+
+def test_resume_rejects_checkpoint_changed_after_preflight(small_model, tmp_path):
+    """Do not restore state from bytes different from the recorded resume source."""
+    model = small_model()
+    cfg = dataset_config(tmp_path, model)
+    policy = TrainingCheckpointPolicy(model, None, None, None, cfg)
+    path = tmp_path / "resume.pt"
+    torch.save({"training_schema": 1, "training_config": cfg.model_dump(mode="json")}, path)
+    policy.resume_receipt = inspect_artifact(path)
+    torch.save({"different": "checkpoint"}, path)
+    with pytest.raises(ArtifactVerificationError, match="changed after attempt creation"):
+        policy.read(path)
 
 
 @pytest.mark.parametrize("suffix", [".tif", ".png"])

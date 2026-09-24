@@ -88,9 +88,38 @@ initialization and a new run name. Cross-project optimizer or run-provenance
 migration is intentionally unsupported. Random-generator restoration does not
 claim bitwise replay across worker counts, hardware, or library versions.
 
-Mammoth owns latest/all retention and best-checkpoint selection. Training does
-not overwrite checkpoints for a fresh restart. The saved configuration and
-TensorBoard directory accompany the checkpoints under the selected output root.
+Mammoth owns latest/all retention, atomic publication, and best-checkpoint
+selection. Its committed publication receipts are retained in the attempt's
+JSONL stream, including SHA-256, size, role, epoch, and retired paths. A receipt
+describes the bytes at publication time; later retention or replacement may
+remove those bytes. Training does not overwrite checkpoints for a fresh restart.
+
+TiSAM composes Mammoth's `ExecutionContext`, `ExecutionEventWriter`,
+`JsonlEventSink`, `RunObserver`, and artifact APIs. It owns a portable
+`portalocker` run lock before checkpoint selection until checkpoint and log
+flushes finish. The pinned Mammoth runtime's POSIX-only lease/text-handler
+implementation is not required by this composition. Python diagnostics use an
+attempt-local file handler, removed and closed at exit. This does not make the
+pinned Mammoth dependency itself Windows compatible: its imports, checkpoint
+filesystem operations, and event writer still need Windows support upstream or
+a separately maintained runtime compatibility patch.
+
+Each invocation publishes immutable execution metadata and an atomic config
+snapshot under `logs/executions/<execution-id>/`. The metadata records the prior
+attempt, starting epoch/global step, and exact resume checkpoint digest. Both
+resume preflight and restore use Mammoth descriptor-bound artifact sessions;
+restore rejects bytes differing from the preflight receipt before changing model
+state. Historical checkpoint and model-only loading remain independent of these
+training-only imports. `config.json` at the run root remains a convenience copy.
+
+Setup and training share one process lifecycle. TiSAM owns the outer train phase
+and terminal process event; Mammoth owns epoch tasks and validation phases.
+Checkpoints flush before successful phase completion. JSONL keeps progress,
+heartbeats, all epoch metrics, config/resume receipts, and checkpoint publication
+events. Training `throughput` is Mammoth's accumulation-window rate;
+`batches_per_second` converts it using actual consumed batches, not the nominal
+accumulation factor. Both rates are epoch averages, not instantaneous samples.
+TensorBoard retains dense metrics in each attempt's `tensorboard/` directory.
 
 ## Local provenance
 
