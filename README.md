@@ -184,9 +184,25 @@ for backend selection and project-level index configuration.
 ### Pretrained weights
 
 Pretrained SAM3, UNI2-h, Virchow2 and UNI2-SEAL weights remain external. Obtain
-access from their respective providers and authenticate with `hf auth login`
-where required. Weights download only when constructing an encoder, not when
-installing or importing TiSAM. The optional `sam3_checkpoint` path must contain the same canonical SAM3 weights.
+access from their respective providers, then authenticate from the directory
+containing your TiSAM environment:
+
+```sh
+uv run --no-sync hf auth login
+uv run --no-sync hf auth whoami
+```
+
+`hf auth login` follows an interactive login flow and saves credentials locally
+for model downloads. Follow its prompts; if asked for a token, create one with
+access to the required models at [Hugging Face token settings](https://huggingface.co/settings/tokens).
+Do not put credentials in configuration files or Git. `hf auth whoami` displays
+the currently authenticated account; it does not download weights or confirm
+access to a particular model. Login alone does not grant access to gated models:
+request or accept access on each model's page using the same account.
+`--no-sync` preserves the installed PyTorch backend while running the CLI.
+
+Weights download only when constructing an encoder, not when installing or
+importing TiSAM. The optional `sam3_checkpoint` path must contain the same canonical SAM3 weights.
 Existing Hugging Face cache entries are reused;
 `HF_HUB_OFFLINE=1` prevents network access. Encoder code and weights retain their
 own license/access conditions; this project does not grant additional rights.
