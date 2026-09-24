@@ -1,7 +1,9 @@
 import os
+import pickle
 import stat
 import subprocess
 import sys
+from functools import partial
 from pathlib import Path
 
 import numpy as np
@@ -10,11 +12,13 @@ import pytest
 import tifffile
 import torch
 from PIL import Image
+from torch.utils.data import DataLoader
 from typer.testing import CliRunner
 
 from tisam.cli import app
 from tisam.config import DataConfig, DatasetMetadata, DatasetSource, TrainConfig
 from tisam.data.tile_dataset import get_tile_loaders
+from tisam.data.wsi_dataset import WSIDataset
 from tisam.inference import evaluate, segment_wsi
 from tisam.training import runner
 
@@ -137,7 +141,33 @@ def test_training_resume_and_evaluation(small_model, tmp_path, monkeypatch):
         runner.train(cfg, resume=False)
 
 
-def test_wsi_edges_and_resume(small_model, tmp_path, monkeypatch):
+@pytest.mark.parametrize("suffix", [".tif", ".png"])
+def test_wsi_spawn_matches_local_reads(tmp_path, suffix):
+    """Spawn workers reopen images while serialization leaves the parent usable."""
+    source = tmp_path / ("rgb" + suffix)
+    pixels = np.arange(19 * 23 * 3, dtype=np.uint16).reshape(19, 23, 3).astype(np.uint8)
+    if suffix == ".tif":
+        tifffile.imwrite(source, pixels, tile=(256, 256), compression="zstd")
+    else:
+        Image.fromarray(pixels).save(source)
+    with WSIDataset(source, (0, 0, 0), (1, 1, 1), 16, 8) as dataset:
+        expected = torch.stack([dataset[i] for i in range(len(dataset))])
+        with pickle.loads(pickle.dumps(dataset)) as restored:
+            torch.testing.assert_close(restored[0], expected[0], rtol=0, atol=0)
+        loader = DataLoader(dataset, batch_size=2, num_workers=1, multiprocessing_context="spawn")
+        actual = torch.cat(list(loader))
+        torch.testing.assert_close(actual, expected, rtol=0, atol=0)
+        torch.testing.assert_close(dataset[0], expected[0], rtol=0, atol=0)
+    dataset.close()
+    source.unlink()
+
+
+@pytest.mark.parametrize("num_workers", [0, 1])
+def test_wsi_edges_and_resume(small_model, tmp_path, monkeypatch, num_workers):
+    monkeypatch.setattr(
+        "tisam.inference.wsi.DataLoader",
+        partial(DataLoader, multiprocessing_context="spawn" if num_workers else None),
+    )
     model = small_model()
     source = tmp_path / "rgb.tif"
     tifffile.imwrite(
@@ -156,10 +186,10 @@ def test_wsi_edges_and_resume(small_model, tmp_path, monkeypatch):
 
     monkeypatch.setattr(model, "forward", fail_once)
     with pytest.raises(RuntimeError, match="interrupted"):
-        segment_wsi(model, source, output, patch_size=16, effective_size=8)
+        segment_wsi(model, source, output, patch_size=16, effective_size=8, num_workers=num_workers)
     assert not output.exists()
     monkeypatch.setattr(model, "forward", original)
-    segment_wsi(model, source, output, patch_size=16, effective_size=8)
+    segment_wsi(model, source, output, patch_size=16, effective_size=8, num_workers=num_workers)
     mask = tifffile.imread(output)
     assert mask.shape == (19, 23) and mask.dtype == np.uint8
     assert not output.with_name(output.name + ".work").exists()
@@ -167,7 +197,7 @@ def test_wsi_edges_and_resume(small_model, tmp_path, monkeypatch):
         assert tif.pages[0].is_tiled
         assert tif.pages[0].compression.name == "ZSTD"
     with pytest.raises(FileExistsError):
-        segment_wsi(model, source, output, patch_size=16, effective_size=8)
+        segment_wsi(model, source, output, patch_size=16, effective_size=8, num_workers=num_workers)
 
 
 def test_wsi_writer_lock_excludes_other_processes(small_model, tmp_path, monkeypatch):

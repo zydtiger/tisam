@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from pathlib import Path
+from typing import Any
 
 import albumentations
 import numpy as np
@@ -88,10 +89,11 @@ class WSIDataset(Dataset):
     The dataset owns the Zarr store behind `self.wsi` and releases it through
     `close`, or by being used as a context manager. Whoever constructs it owns that
     release, and must perform it only after the `DataLoader` consuming it has shut
-    down: workers receive their own descriptors when the dataset is forked or
-    pickled, so a close in the constructing process is safe once no local consumer
-    remains. There is deliberately no finalizer, because a collector-driven close
-    would run at an unpredictable point relative to worker processes.
+    down. Serialization omits open image resources; spawned workers reopen
+    the source on their first read and reuse it until they exit. A close in the
+    constructing process does not close resources opened by spawned workers.
+    There is deliberately no finalizer, because a collector-driven close would
+    run at an unpredictable point relative to worker processes.
     """
 
     def __init__(
@@ -108,8 +110,11 @@ class WSIDataset(Dataset):
         self.effective_size = effective_size
 
         # TIFF reads stay lazy through Zarr. PNG evaluation ROIs are bounded
-        # images and are decoded exactly once without color conversion.
-        self._levels, self.wsi = open_segmentation_source(wsi_path)
+        # images and are decoded once per open without color conversion.
+        self.wsi_path = Path(wsi_path).resolve()
+        self._levels: TiffLevels | None
+        self.wsi: zarr.Array | np.ndarray | None
+        self._levels, self.wsi = open_segmentation_source(self.wsi_path)
 
         # Keep fusion positions local to the output mask while WSI reads use
         # source coordinates offset by the resolved region origin.
@@ -168,7 +173,17 @@ class WSIDataset(Dataset):
         """
         return len(self.positions)
 
+    def __getstate__(self) -> dict[str, Any]:
+        """Serialize configuration without open TIFF stores or decoded images."""
+        state = self.__dict__.copy()
+        state["_levels"] = None
+        state["wsi"] = None
+        return state
+
     def __getitem__(self, idx: int) -> torch.Tensor:
+        if self.wsi is None:
+            self._levels, self.wsi = open_segmentation_source(self.wsi_path)
+
         # Get the top-left corner position for this patch
         y, x = self.positions[idx]
         left, top, _right, _bottom = self.region.resolved_source_pixel_ltrb
@@ -194,6 +209,8 @@ class WSIDataset(Dataset):
         """
         if self._levels is not None:
             self._levels.close()
+        self._levels = None
+        self.wsi = None
 
     def __enter__(self) -> WSIDataset:
         """Return this dataset for scoped use."""
