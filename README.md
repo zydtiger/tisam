@@ -23,8 +23,7 @@ as described below.
 
 Python 3.9–3.10 use tifffile before 2025.5.21 with Zarr 2; Python 3.11+ use
 tifffile 2025.5.21+ with Zarr 3. These pairs preserve lazy TIFF reads. WSI writer
-locks use portalocker rather than a Unix-only API; Windows execution still needs
-platform validation beyond the Linux test matrix.
+locks use portalocker rather than a Unix-only API.
 
 ### Choose dependencies for your workflow
 
@@ -50,6 +49,17 @@ runtime extras.
 
 Install Git and uv first. Git is required because SAM3, PrettyTerm, and Mammoth
 use immutable public Git references. No second local checkout is needed.
+On Windows, install Git and uv from PowerShell:
+
+```powershell
+winget install --id Git.Git -e --source winget
+winget install --id astral-sh.uv -e --source winget
+```
+
+Reopen PowerShell after installation, then verify `git --version` and
+`uv --version`. The `uv run --no-sync` commands below also work in PowerShell;
+activating the virtual environment is not required.
+
 If you do not already have a Python environment, create one in your working
 directory:
 
@@ -150,7 +160,17 @@ Omit `[train,inference]` for the base package. Use a fresh environment for a new
 backend, or add `--reinstall-package torch --reinstall-package torchvision` when
 switching an existing installation. Add `--dry-run` to preview dependency
 resolution without installing packages. The environment variable form is
-equivalent, for example `UV_TORCH_BACKEND=cu128 uv pip install '.[train,inference]'`.
+equivalent, for example `UV_TORCH_BACKEND=cu128 uv pip install '.[train,inference]'`
+in a POSIX shell. In PowerShell:
+
+```powershell
+$env:UV_TORCH_BACKEND = "cu128"
+uv pip install '.[train,inference]'
+Remove-Item Env:UV_TORCH_BACKEND
+```
+
+PowerShell environment assignments persist for the current shell session;
+`Remove-Item` clears the override after use.
 
 Dependency resolution follows these rules:
 
@@ -321,6 +341,35 @@ when source identity, preprocessing, geometry and exact model weights match.
 Existing final outputs are never overwritten. Successful publication removes
 its reproducible scratch. Start with a new output path to change inputs.
 
+### Multiprocessing in Python scripts
+
+When using `num_workers > 0` in your own Python script, put model loading and
+workflow execution inside a function guarded by `if __name__ == "__main__":`:
+
+```python
+from tisam import load_model
+from tisam.inference import segment_wsi
+
+
+def main():
+    model = load_model("weights.safetensors", device="cuda")
+    segment_wsi(model, "slide.tif", "mask.tif", num_workers=2)
+
+
+if __name__ == "__main__":
+    main()
+```
+
+Windows uses `spawn`, which imports the main script in each worker. The guard
+prevents workers from loading the model and starting the workflow again. It is
+also needed with `spawn` or `forkserver` on Linux; Python 3.14 defaults to
+`forkserver` there. Linux's `fork` avoids this re-import, but inherits process
+state, including file handles and locks, and cannot safely reuse initialized
+CUDA state in workers. Keep the guard for portable scripts.
+
+The installed `tisam` CLI already guards its entry point, so CLI commands need
+no changes. With `num_workers=0`, no DataLoader worker processes are started.
+
 ## Import historical TiSAM weights
 
 ```python
@@ -370,6 +419,15 @@ GPU (physical GPU 1 in this example) and run them explicitly:
 
 ```sh
 CUDA_VISIBLE_DEVICES=1 HF_HUB_OFFLINE=1 uv run --no-sync pytest tests/test_real.py -m real -q
+```
+
+In PowerShell, the equivalent is:
+
+```powershell
+$env:CUDA_VISIBLE_DEVICES = "1"
+$env:HF_HUB_OFFLINE = "1"
+uv run --no-sync pytest tests/test_real.py -m real -q
+Remove-Item Env:CUDA_VISIBLE_DEVICES, Env:HF_HUB_OFFLINE
 ```
 
 These checks cover a training step and multi-patch WSI inference for each
