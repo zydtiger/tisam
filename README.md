@@ -26,33 +26,102 @@ tifffile 2025.5.21+ with Zarr 3. These pairs preserve lazy TIFF reads. WSI write
 locks use portalocker rather than a Unix-only API; Windows execution still needs
 platform validation beyond the Linux test matrix.
 
-Install directly from GitHub into an existing environment:
+### Choose dependencies for your workflow
+
+Training and inference do not require pytest, Ruff, or mypy. Choose the runtime
+extras you need; add the `dev` group only when developing TiSAM or running its
+tests.
+
+| Selection | Intended use | What it adds |
+| --- | --- | --- |
+| Base package (no extras) | Construct `TiSAM`, load checkpoints, and run your own tensor-based workflow | Model architecture, configuration, and checkpoint loading |
+| `train` extra | Train and resume models with TiSAM's training workflow | Mammoth, datasets, augmentation, image I/O, and TensorBoard logging |
+| `inference` extra | Predict RGB images, segment TIFF/WSI inputs, or evaluate validation/test tiles | Image I/O, preprocessing, and WSI dependencies, without Mammoth |
+| `train,inference` extras | Use both training and inference workflows | Both sets of runtime dependencies |
+| `dev` dependency group | Develop this repository or run its tests | pytest, Ruff, mypy, and PyYAML type stubs; no additional runtime workflow |
+
+`train` and `inference` are package extras selected with square brackets. They
+can be requested when installing TiSAM from GitHub or a local checkout. `dev`
+is a repository dependency group selected with `--group dev`, not a package
+extra: use it from the repository root. The full test suite also needs both
+runtime extras.
+
+### Install for normal use
+
+Install Git and uv first. Git is required because SAM3, PrettyTerm, and Mammoth
+use immutable public Git references. No second local checkout is needed.
+If you do not already have a Python environment, create one in your working
+directory:
 
 ```sh
-uv pip install 'tisam @ git+https://github.com/zydtiger/tisam.git'
-uv pip install 'tisam[train,inference] @ git+https://github.com/zydtiger/tisam.git'
+uv venv --python 3.12
 ```
 
-For development, from the project root:
+Choose **one** installation below. These commands work in a POSIX shell or
+Windows PowerShell and select the PyTorch backend on the target machine:
 
 ```sh
-uv sync --all-extras --group dev
+# Base model API only.
+uv pip install --torch-backend=auto 'tisam @ git+https://github.com/zydtiger/tisam.git'
+
+# Training and resume.
+uv pip install --torch-backend=auto 'tisam[train] @ git+https://github.com/zydtiger/tisam.git'
+
+# Image/WSI prediction and validation/test evaluation.
+uv pip install --torch-backend=auto 'tisam[inference] @ git+https://github.com/zydtiger/tisam.git'
+
+# Both training and inference.
+uv pip install --torch-backend=auto 'tisam[train,inference] @ git+https://github.com/zydtiger/tisam.git'
+```
+
+For installation from a local checkout, run the corresponding command from the
+repository root:
+
+```sh
+uv pip install --torch-backend=auto .
+uv pip install --torch-backend=auto '.[train]'
+uv pip install --torch-backend=auto '.[inference]'
+uv pip install --torch-backend=auto '.[train,inference]'
+```
+
+These are alternatives, not sequential steps. None installs the `dev` group.
+Optional workflows are not imported by `import tisam` or CLI help.
+See [Select a PyTorch backend](#select-a-pytorch-backend) for explicit CUDA
+versions, Python 3.9, and CPU fallback behavior.
+
+### Install for development or testing
+
+From a cloned repository, choose one of these setup routes.
+
+To reproduce the locked development environment, including all runtime extras
+and development tools:
+
+```sh
+uv sync --locked --all-extras --group dev
+```
+
+To select a PyTorch backend for the target GPU machine while installing all
+runtime extras and development tools:
+
+```sh
+uv venv --python 3.12
+uv pip install --torch-backend=auto -e '.[train,inference]' --group dev
+```
+
+The second route installs TiSAM in editable mode so source edits take effect
+without reinstalling. It resolves dependencies without using `uv.lock`.
+`uv sync` does not implicitly select `--torch-backend=auto`; the current lockfile
+uses PyPI's CPU-only PyTorch wheels on Windows. A later `uv sync` can replace a
+manually selected backend, so use `--no-sync` when running that environment:
+
+```sh
 uv run --no-sync tisam --help
+uv run --no-sync pytest -q
 ```
 
-For an external environment, install the project root:
-
-```sh
-uv pip install .
-uv pip install '.[train,inference]'
-```
-
-The base package provides `TiSAM`, `ModelConfig`, and checkpoint loading.
-`train` adds Mammoth, augmentation, datasets and TensorBoard logging;
-`inference` adds RGB image/TIFF/WSI workflows. Optional workflows are not
-imported by `import tisam` or CLI help. SAM3, PrettyTerm, and Mammoth use immutable public Git
-references in the package metadata, so installation does not depend on uv source
-overrides or a second local checkout. Git is required to resolve those sources.
+Running tests is optional for normal users. The default tests use offline
+fixtures and do not download model weights. See [Development](#development)
+for repository checks and opt-in pretrained-model tests.
 
 ### Select a PyTorch backend
 
