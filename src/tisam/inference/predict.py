@@ -28,7 +28,12 @@ def predict(
     try:
         model.eval()
         with torch.inference_mode():
-            logits = model(tensor.unsqueeze(0).to(device))
+            batch = tensor.unsqueeze(0).to(device)
+            if tuple(batch.shape[-2:]) != tuple(model.input_hw):
+                batch = torch.nn.functional.interpolate(
+                    batch, size=model.input_hw, mode="bilinear", align_corners=False
+                )
+            logits = model(batch)
             logits = torch.nn.functional.interpolate(
                 logits, size=image.shape[:2], mode="bilinear", align_corners=False
             )

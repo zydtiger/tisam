@@ -1,6 +1,7 @@
 model:
   num_classes: 2
   extra_encoder: hf-hub:MahmoodLab/UNI2-h
+  input_hw: [1024, 1024]
   output_hw: [1024, 1024]
   pos_embed_mode: none
   sam_proj: false

@@ -81,10 +81,12 @@ with torch.inference_mode(), torch.autocast("cuda", dtype=torch.bfloat16):
 Set `extra_encoder` to `hf-hub:paige-ai/Virchow2` or
 `hf-hub:MahmoodLab/UNI2-SEAL` for the other supported foundation encoders.
 Both encoders are always present. `total_queries` defaults to `num_classes + 1`.
-The foundation width is derived from its identity. Defaults use final-feature
-fusion, no positional embedding, no SAM projection, frozen encoders and six
-query-decoder layers. `ModelConfig` exposes the existing fusion, positional
-embedding, projection, interpolation and finetuning options.
+The foundation width is derived from its identity. `input_hw` and `output_hw`
+both default to `(1024, 1024)`, and `model(images)` requires an input whose
+spatial shape matches `input_hw`. Defaults use final-feature fusion, no
+positional embedding, no SAM projection, frozen encoders and six query-decoder
+layers. `ModelConfig` exposes the existing fusion, positional embedding,
+projection, interpolation and finetuning options.
 
 ## Train and evaluate
 

@@ -22,7 +22,8 @@ class ModelConfig(BaseModel):
     finetune: bool = False
     finetune_last_n_blocks: int = 2
     finetune_neck_convs: bool = True
-    output_hw: tuple[int, int] = (1008, 1008)
+    input_hw: tuple[int, int] = (1024, 1024)
+    output_hw: tuple[int, int] = (1024, 1024)
     extra_encoder: Literal[
         "hf-hub:MahmoodLab/UNI2-h", "hf-hub:paige-ai/Virchow2", "hf-hub:MahmoodLab/UNI2-SEAL"
     ] = Field()
@@ -57,9 +58,14 @@ class ModelConfig(BaseModel):
                 raise ValueError(f"{name} must be positive")
         if self.d_model % self.n_heads:
             raise ValueError("d_model must be divisible by n_heads")
-        if any(v <= 0 for v in self.output_hw) or self.extra_shape != (224, 224):
+        if (
+            any(v <= 0 for v in self.input_hw)
+            or any(v <= 0 for v in self.output_hw)
+            or self.extra_shape != (224, 224)
+        ):
             raise ValueError(
-                "output_hw must be positive; foundation encoders require extra_shape=(224,224)"
+                "input_hw and output_hw must be positive; "
+                "foundation encoders require extra_shape=(224,224)"
             )
         if not 0 <= self.dropout < 1:
             raise ValueError("dropout must lie in [0, 1)")

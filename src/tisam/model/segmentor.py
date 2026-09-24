@@ -48,6 +48,7 @@ class TiSAM(nn.Module):
         finetune = config.finetune
         finetune_last_n_blocks = config.finetune_last_n_blocks
         finetune_neck_convs = config.finetune_neck_convs
+        input_hw = config.input_hw
         output_hw = config.output_hw
         extra_encoder = config.extra_encoder
         extra_shape = config.extra_shape
@@ -70,8 +71,8 @@ class TiSAM(nn.Module):
         self.num_classes = num_classes
         self.total_classes = num_classes + 1  # +1 for void/background
         self.total_queries = total_queries
+        self.input_hw = input_hw
         self.output_hw = output_hw
-        self.input_hw = output_hw
         self.image_encoder_type = "sam3"
         self.use_sam3_encoder = self.image_encoder_type == "sam3"
         self.feature_pyramid_spec = SAM3_FEATURE_PYRAMID_SPEC
@@ -374,6 +375,11 @@ class TiSAM(nn.Module):
             - Use return_probs=True for visualization requiring probability values
             - Default logits are suitable for loss computation with cross_entropy
         """
+        if images.ndim != 4 or tuple(images.shape[-2:]) != self.input_hw:
+            raise ValueError(
+                "Expected input tensor with shape "
+                f"(B, C, {self.input_hw[0]}, {self.input_hw[1]}), got {tuple(images.shape)}."
+            )
 
         backbone_fpn = None
         if self.image_encoder is not None:

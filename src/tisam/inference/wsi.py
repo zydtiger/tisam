@@ -119,11 +119,22 @@ def segment_wsi(
             )
             device = next(model.parameters()).device
             padding = (patch_size - effective_size) // 2
+            model_input_hw = getattr(model, "input_hw", None)
             model.eval()
             offset = 0
             with torch.inference_mode():
                 for images in loader:
-                    logits = model(images.to(device))
+                    images = images.to(device)
+                    if model_input_hw is not None and tuple(images.shape[-2:]) != tuple(
+                        model_input_hw
+                    ):
+                        images = torch.nn.functional.interpolate(
+                            images,
+                            size=model_input_hw,
+                            mode="bilinear",
+                            align_corners=False,
+                        )
+                    logits = model(images)
                     logits = torch.nn.functional.interpolate(
                         logits, size=(patch_size, patch_size), mode="bilinear", align_corners=False
                     )

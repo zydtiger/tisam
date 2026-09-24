@@ -66,6 +66,7 @@ def small_model(monkeypatch):
             num_layers=2,
             dim_feedforward=32,
             output_hw=(16, 16),
+            input_hw=(16, 16),
             dropout=0,
             sam_proj=True,
         )

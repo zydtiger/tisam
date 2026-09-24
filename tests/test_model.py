@@ -42,6 +42,18 @@ def test_fusion_options(small_model, deep, cross, early):
     assert model(torch.randn(1, 3, 16, 16)).shape == (1, 3, 16, 16)
 
 
+def test_forward_rejects_input_shape_mismatch(small_model):
+    model = small_model()
+    with pytest.raises(ValueError, match="Expected input tensor"):
+        model(torch.randn(1, 3, 8, 8))
+
+
+def test_input_and_output_resolutions_are_independent(small_model):
+    model = small_model(input_hw=(16, 16), output_hw=(8, 8))
+    assert model.input_hw == (16, 16) and model.output_hw == (8, 8)
+    assert model(torch.randn(1, 3, 16, 16)).shape == (1, 3, 8, 8)
+
+
 def test_missing_trainable_weights_are_rejected(small_model):
     model = small_model()
     state = checkpoint_state(model)
@@ -53,6 +65,7 @@ def test_missing_trainable_weights_are_rejected(small_model):
 def test_required_config_and_legacy_translation():
     cfg = ModelConfig(num_classes=4, extra_encoder="hf-hub:MahmoodLab/UNI2-h")
     assert cfg.total_queries == 5 and cfg.extra_embed_dim == 1536
+    assert cfg.input_hw == (1024, 1024) and cfg.output_hw == (1024, 1024)
     with pytest.raises(ValueError):
         ModelConfig(num_classes=4, extra_encoder=None)
     old = dict(

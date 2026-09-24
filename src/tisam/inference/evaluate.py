@@ -23,7 +23,7 @@ def evaluate(model, config: TrainConfig, *, split: str = "validation") -> dict:
         dataset_std=config.data.std,
         num_classes=config.model.num_classes,
         dataset_class_names=config.data.class_names,
-        target_size=config.model.output_hw,
+        target_size=config.model.input_hw,
         data_type="val",
         return_metric_validity=True,
     )

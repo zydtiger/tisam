@@ -1063,7 +1063,7 @@ def get_tile_loaders(
     """
     # Get augmentations
     augs = get_augmentation(
-        cfg.model.output_hw,
+        cfg.model.input_hw,
         crop_scale=cfg.data.crop_scale,
         color_jitter_p=cfg.data.color_jitter_p,
         seed=cfg.seed,
@@ -1076,7 +1076,7 @@ def get_tile_loaders(
         dataset_std=cfg.data.std,
         num_classes=cfg.model.num_classes,
         dataset_class_names=cfg.data.class_names,
-        target_size=cfg.model.output_hw,
+        target_size=cfg.model.input_hw,
         data_type="train",
         augmentation=augs[0] if augs else None,
         synthetic_background_fraction=cfg.data.synthetic_background_fraction,
@@ -1090,7 +1090,7 @@ def get_tile_loaders(
         dataset_std=cfg.data.std,
         num_classes=cfg.model.num_classes,
         dataset_class_names=cfg.data.class_names,
-        target_size=cfg.model.output_hw,
+        target_size=cfg.model.input_hw,
         data_type="val",
         augmentation=augs[1] if augs else None,
         return_metric_validity=True,

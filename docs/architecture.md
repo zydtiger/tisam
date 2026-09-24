@@ -42,11 +42,16 @@ not accepted. No upstream weights are vendored or uploaded by this project.
 
 ## Model I/O
 
-The model consumes normalized BCHW RGB tensors and returns BCHW semantic logits
-with canonical void at channel 0. `num_classes` excludes void; `total_queries`
-defaults to the resulting total class count. SAM3 handles its input resizing
-internally. The configurable output resolution determines the dense logits;
-image/WSI helpers resize logits to image/patch coordinates before argmax.
+The model consumes normalized BCHW RGB tensors whose spatial shape must match
+`ModelConfig.input_hw`. A mismatched input height or width is rejected before
+encoding. Both `input_hw` and `output_hw` default to `(1024, 1024)`; training
+tiles are resized to `input_hw`, and prediction and WSI helpers resize arbitrary
+inputs to `input_hw` before the forward pass. The model returns BCHW semantic
+logits with canonical void at channel 0. `num_classes` excludes void;
+`total_queries` defaults to the resulting total class count. SAM3 handles its
+input resizing internally. The configurable `output_hw` determines the dense
+logits; image/WSI helpers resize logits to image/patch coordinates before
+argmax.
 
 `return_probs=True` returns normalized probabilities. `return_intermediates=True`
 returns the existing semantic-mask and decoder-output mapping. Frozen encoders

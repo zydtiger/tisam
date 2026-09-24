@@ -38,6 +38,7 @@ def legacy_model_config(payload: Mapping[str, Any]) -> ModelConfig:
         raise ValueError("Checkpoint configuration is incomplete; provide an explicit ModelConfig")
     aliases = {
         "num_classes": "dataset_num_classes",
+        "input_hw": "dataset_image_hw",
         "output_hw": "dataset_image_hw",
         "finetune": "model_image_finetune",
         "finetune_last_n_blocks": "model_image_finetune_last_n_blocks",
