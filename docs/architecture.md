@@ -94,15 +94,19 @@ JSONL stream, including SHA-256, size, role, epoch, and retired paths. A receipt
 describes the bytes at publication time; later retention or replacement may
 remove those bytes. Training does not overwrite checkpoints for a fresh restart.
 
-TiSAM composes Mammoth's `ExecutionContext`, `ExecutionEventWriter`,
-`JsonlEventSink`, `RunObserver`, and artifact APIs. It owns a portable
-`portalocker` run lock before checkpoint selection until checkpoint and log
-flushes finish. The pinned Mammoth runtime's POSIX-only lease/text-handler
-implementation is not required by this composition. Python diagnostics use an
-attempt-local file handler, removed and closed at exit. This does not make the
-pinned Mammoth dependency itself Windows compatible: its imports, checkpoint
-filesystem operations, and event writer still need Windows support upstream or
-a separately maintained runtime compatibility patch.
+TiSAM claims Mammoth's logical-run lease before checkpoint selection and composes
+an `ExecutionSession` from the established execution context and logging bundle.
+Mammoth owns cross-platform lease handling, exclusive text logs, phase/process
+terminal events, and log cleanup. TiSAM supplies configuration and checkpoint
+receipts, training metric fields, TensorBoard output, and Python logger routing.
+The lease remains held until checkpoint and log flushes finish. Training uses
+Mammoth 0.8.8's single-process Windows support; inference and data imports remain
+independent of Mammoth.
+
+Older TiSAM versions used a separate `.training.lock`. Stop older training
+processes before upgrading a run: old and new versions do not share the same
+ownership lock. Existing checkpoints and execution records remain compatible;
+a leftover `.training.lock` file does not prevent a new attempt.
 
 Each invocation publishes immutable execution metadata and an atomic config
 snapshot under `logs/executions/<execution-id>/`. The metadata records the prior
@@ -112,8 +116,9 @@ restore rejects bytes differing from the preflight receipt before changing model
 state. Historical checkpoint and model-only loading remain independent of these
 training-only imports. `config.json` at the run root remains a convenience copy.
 
-Setup and training share one process lifecycle. TiSAM owns the outer train phase
-and terminal process event; Mammoth owns epoch tasks and validation phases.
+Setup and training share one process lifecycle. TiSAM scopes its outer train
+phase through the Mammoth session, which records phase and process outcomes;
+Mammoth's Trainer owns epoch tasks and validation phases.
 Checkpoints flush before successful phase completion. JSONL keeps progress,
 heartbeats, all epoch metrics, config/resume receipts, and checkpoint publication
 events. Training `throughput` is Mammoth's accumulation-window rate;

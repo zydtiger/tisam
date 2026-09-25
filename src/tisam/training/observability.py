@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import logging
 import sys
-import time
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 from dataclasses import replace
 from typing import Iterator
 
+from mammoth.core import LogicalRunLease
 from mammoth.core.artifacts import ArtifactReceipt, atomic_write_json, inspect_artifact
 from mammoth.core.events import ExecutionEventWriter
 from mammoth.core.execution import (
@@ -16,7 +16,13 @@ from mammoth.core.execution import (
     generate_execution_id,
     latest_execution_id,
 )
-from mammoth.logging import JsonlEventSink, RunObserver
+from mammoth.execution import ExecutionSession
+from mammoth.logging import (
+    ExecutionLogging,
+    JsonlEventSink,
+    RunObserver,
+    create_process_text_handler,
+)
 from mammoth.logging.model import Observation
 from mammoth.logging.tensorboard import TensorBoardSink
 from mammoth.torch import MetricRoute
@@ -78,15 +84,12 @@ def artifact_fields(receipt: ArtifactReceipt) -> dict:
 def training_observer(
     config: TrainConfig,
     *,
+    lease: LogicalRunLease,
     resume_receipt: ArtifactReceipt | None,
     initial_epoch: int,
     initial_step: int,
 ) -> Iterator[RunObserver]:
-    """Own logs through setup, training, checkpoint flush, and terminal events.
-
-    TiSAM holds its portable run lock outside this scope. Mammoth's low-level
-    observer APIs avoid the pinned runtime's POSIX-only lease implementation.
-    """
+    """Compose TiSAM provenance and metrics inside a Mammoth execution session."""
     directory = (config.out_dir / config.name).resolve()
     execution_id = generate_execution_id()
     snapshot = directory / "logs" / "executions" / execution_id / "config.json"
@@ -107,63 +110,53 @@ def training_observer(
         starting_global_step=initial_step,
         runtime={"device": config.device, "precision": config.precision},
     )
-    handler = logging.FileHandler(context.rank_log_path(0), encoding="utf-8")
-    handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
-    root = logging.getLogger()
-    previous_level = root.level
-    root.addHandler(handler)
-    root.setLevel(min(previous_level, logging.INFO))
-    writer = None
-    try:
+    with ExitStack() as resources:
+        handler = create_process_text_handler(context, rank=0)
+        resources.callback(handler.close)
         writer = ExecutionEventWriter.for_process(context, rank=0)
+        resources.callback(writer.close)
         if not writer.enabled:
-            writer.close()
             raise RuntimeError("Mammoth JSONL logging could not open its event stream")
-        with RunObserver(
-            (TrainingJsonlSink(writer), TensorBoardSink(context.execution_dir / "tensorboard"))
-        ) as observer:
-            started = time.monotonic()
-            observer.emit("process_started", phase="train")
-            exit_code = 1
+        tensorboard = TensorBoardSink(context.execution_dir / "tensorboard")
+        resources.callback(tensorboard.close)
+        observer = RunObserver((TrainingJsonlSink(writer), tensorboard))
+        resources.callback(observer.close)
+        execution_logging = ExecutionLogging(context, 0, observer, handler, writer)
+        root = logging.getLogger()
+        previous_level = root.level
+        root.addHandler(handler)
+        resources.callback(root.removeHandler, handler)
+        root.setLevel(min(previous_level, logging.INFO))
+        resources.callback(root.setLevel, previous_level)
+        with (
+            ExecutionSession.from_established(
+                context, execution_logging, logical_run_lease=lease
+            ) as session,
+            session.phase_scope("train"),
+        ):
             try:
-                with observer.phase("train"):
-                    atomic_write_json(snapshot, config.model_dump(mode="json"))
-                    receipt = inspect_artifact(snapshot)
+                atomic_write_json(snapshot, config.model_dump(mode="json"))
+                receipt = inspect_artifact(snapshot)
+                observer.emit(
+                    "task_completed",
+                    phase="train",
+                    task_id="configuration",
+                    artifacts=[artifact_fields(receipt)],
+                )
+                # Preserve the historical convenience path; attempt snapshots are immutable.
+                atomic_write_json(directory / "config.json", config.model_dump(mode="json"))
+                if resume_receipt is not None:
                     observer.emit(
                         "task_completed",
                         phase="train",
-                        task_id="configuration",
-                        artifacts=[artifact_fields(receipt)],
+                        task_id="resume-source",
+                        artifacts=[artifact_fields(resume_receipt)],
                     )
-                    # Preserve the historical convenience path; attempt snapshots are immutable.
-                    atomic_write_json(directory / "config.json", config.model_dump(mode="json"))
-                    if resume_receipt is not None:
-                        observer.emit(
-                            "task_completed",
-                            phase="train",
-                            task_id="resume-source",
-                            artifacts=[artifact_fields(resume_receipt)],
-                        )
-                    with observer.periodic_heartbeats(phase="train"):
-                        yield observer
-                exit_code = 0
+                with observer.periodic_heartbeats(phase="train"):
+                    yield observer
             except KeyboardInterrupt:
-                exit_code = 130
                 logging.getLogger(__name__).warning("Training interrupted")
                 raise
             except BaseException:
                 logging.getLogger(__name__).exception("Training attempt failed")
                 raise
-            finally:
-                observer.emit(
-                    "process_completed",
-                    phase="train",
-                    exit_code=exit_code,
-                    duration_seconds=time.monotonic() - started,
-                )
-    finally:
-        if writer is not None:
-            writer.close()
-        root.removeHandler(handler)
-        root.setLevel(previous_level)
-        handler.close()

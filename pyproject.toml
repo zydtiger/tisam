@@ -23,7 +23,7 @@ dependencies = [
 
 [project.optional-dependencies]
 train = [
-  "mammoth[tensorboard,torch] @ git+https://github.com/zydtiger/mammoth.git@v0.8.7",
+  "mammoth[tensorboard,torch] @ git+https://github.com/zydtiger/mammoth.git@v0.8.8",
   "albumentations>=2,<3",
   "opencv-python-headless<4.12",
   "pillow",
@@ -33,7 +33,6 @@ train = [
   "zarr>=2.18.2,<3; python_version < '3.11'",
   "numcodecs<0.16; python_version < '3.11'",
   "zarr>=3.1.5; python_version >= '3.11'",
-  "portalocker>=3.2",
 ]
 inference = [
   "albumentations>=2,<3",

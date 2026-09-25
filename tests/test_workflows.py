@@ -1,5 +1,6 @@
 import hashlib
 import json
+import logging
 import os
 import pickle
 import stat
@@ -13,6 +14,7 @@ import portalocker
 import pytest
 import tifffile
 import torch
+from mammoth.core import claim_logical_run_lease
 from mammoth.core.artifacts import ArtifactVerificationError, inspect_artifact
 from PIL import Image
 from torch.utils.data import DataLoader
@@ -201,8 +203,12 @@ def test_training_setup_failure_is_logged_and_unlocks(
 ):
     """Setup failures close logs and allow another attempt without stale ownership."""
     cfg = dataset_config(tmp_path, small_model())
+    root = logging.getLogger()
+    original_handlers, original_level = list(root.handlers), root.level
 
     def fail_setup(*args, **kwargs):
+        with pytest.raises(RuntimeError, match="already active"):
+            claim_logical_run_lease(cfg.out_dir / cfg.name)
         if interrupted:
             raise KeyboardInterrupt
         raise RuntimeError("deliberate loader failure")
@@ -211,6 +217,8 @@ def test_training_setup_failure_is_logged_and_unlocks(
     for _ in range(2):
         with pytest.raises(KeyboardInterrupt if interrupted else RuntimeError):
             runner.train(cfg)
+        assert root.handlers == original_handlers
+        assert root.level == original_level
     attempts = list((cfg.out_dir / cfg.name / "logs" / "executions").iterdir())
     assert len(attempts) == 2
     for attempt in attempts:
@@ -227,10 +235,43 @@ def test_training_run_lock_prevents_concurrent_attempt(small_model, tmp_path):
     cfg = dataset_config(tmp_path, small_model())
     directory = cfg.out_dir / cfg.name
     directory.mkdir(parents=True)
-    with portalocker.Lock(directory / ".training.lock", mode="a+b", timeout=0):
-        with pytest.raises(portalocker.exceptions.LockException):
+    with claim_logical_run_lease(directory):
+        with pytest.raises(RuntimeError, match="already active"):
             runner.train(cfg)
-    assert not (directory / "logs").exists()
+    assert not (directory / "logs" / "executions").exists()
+    assert not (directory / "checkpoints").exists()
+
+
+@pytest.mark.parametrize("failure_stage", ["preflight", "logging"])
+def test_training_early_failure_releases_run_ownership(
+    small_model, tmp_path, monkeypatch, failure_stage
+):
+    """Failures before the session starts must not strand the run or logger."""
+    from tisam.training import observability
+
+    cfg = dataset_config(tmp_path, small_model())
+    root = logging.getLogger()
+    original_handlers, original_level = list(root.handlers), root.level
+    kwargs = {}
+    if failure_stage == "preflight":
+        checkpoint = tmp_path / "historical.pt"
+        torch.save({"weights": {}}, checkpoint)
+        kwargs["checkpoint"] = checkpoint
+        expected_error, message = ValueError, "Use initialize_from"
+    else:
+
+        def fail_tensorboard(*args, **kwargs):
+            raise RuntimeError("deliberate logging setup failure")
+
+        monkeypatch.setattr(observability, "TensorBoardSink", fail_tensorboard)
+        expected_error, message = RuntimeError, "deliberate logging setup failure"
+    for _ in range(2):
+        with pytest.raises(expected_error, match=message):
+            runner.train(cfg, **kwargs)
+        with claim_logical_run_lease(cfg.out_dir / cfg.name):
+            pass
+        assert root.handlers == original_handlers
+        assert root.level == original_level
 
 
 def test_resume_rejects_checkpoint_changed_after_preflight(small_model, tmp_path):

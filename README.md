@@ -301,9 +301,11 @@ With batch size one, batches/s also equals tiles/s. Epoch summaries retain their
 full metric mapping as `epoch_metrics`.
 
 The convenience `runs/<name>/config.json` contains the latest attempt's config;
-older attempt snapshots remain intact. A portable file lock prevents two TiSAM
-training invocations from writing the same run concurrently. New logging takes
-effect on the next invocation; a running process keeps its original logging setup.
+older attempt snapshots remain intact. Mammoth owns the cross-platform run lease,
+text logs, and execution lifecycle. The lease prevents concurrent training
+invocations from writing the same run. Before upgrading from a TiSAM version
+that used `.training.lock`, stop its training processes: older and newer versions
+use different ownership locks. Existing checkpoints remain compatible.
 Use the same training configuration and epoch horizon when resuming. Weight
 initialization is the supported way to change the training objective or dataset.
 See [the checkpoint contract](docs/architecture.md) for details.

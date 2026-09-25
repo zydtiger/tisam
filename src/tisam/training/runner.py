@@ -8,8 +8,8 @@ import random
 from pathlib import Path
 
 import numpy as np
-import portalocker
 import torch
+from mammoth.core import claim_logical_run_lease
 from mammoth.core.artifacts import open_artifact_session
 from mammoth.logging import RunObserver
 from mammoth.torch import CheckpointSavePolicy, EarlyStopping, Trainer, WarmupLinearLR
@@ -74,10 +74,10 @@ def train(
         raise ValueError("Training requires nonempty train and validation sources")
     directory = config.out_dir / config.name
     directory.mkdir(parents=True, exist_ok=True)
-    # Keep the lock inode: deleting it could let concurrent callers lock different files.
-    with portalocker.Lock(directory / ".training.lock", mode="a+b", timeout=0):
+    with claim_logical_run_lease(directory) as lease:
         return _train_locked(
             config,
+            lease=lease,
             resume=resume,
             checkpoint=checkpoint,
             initialize_from=initialize_from,
@@ -85,7 +85,7 @@ def train(
         )
 
 
-def _train_locked(config, *, resume, checkpoint, initialize_from, trusted):
+def _train_locked(config, *, lease, resume, checkpoint, initialize_from, trusted):
     """Select resume state and establish one attempt while holding run ownership."""
     random.seed(config.seed)
     np.random.seed(config.seed)
@@ -116,6 +116,7 @@ def _train_locked(config, *, resume, checkpoint, initialize_from, trusted):
         del payload
     with training_observer(
         config,
+        lease=lease,
         resume_receipt=resume_receipt,
         initial_epoch=initial_epoch,
         initial_step=initial_step,

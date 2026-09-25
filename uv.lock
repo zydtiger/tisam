@@ -842,8 +842,7 @@ name = "iopath"
 version = "0.1.10"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "portalocker", version = "3.2.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
-    { name = "portalocker", version = "4.4.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+    { name = "portalocker" },
     { name = "tqdm" },
     { name = "typing-extensions" },
 ]
@@ -1007,9 +1006,10 @@ wheels = [
 
 [[package]]
 name = "mammoth"
-version = "0.8.7"
-source = { git = "https://github.com/zydtiger/mammoth.git?rev=v0.8.7#fba04d7175054e59639ba0c2a97c9a4b6b26f0df" }
+version = "0.8.8"
+source = { git = "https://github.com/zydtiger/mammoth.git?rev=v0.8.8#0a10b98267c872fc147a9bf0d3cc38e968032671" }
 dependencies = [
+    { name = "portalocker" },
     { name = "typer-slim" },
     { name = "typing-extensions" },
 ]
@@ -2327,40 +2327,12 @@ wheels = [
 name = "portalocker"
 version = "3.2.0"
 source = { registry = "https://pypi.org/simple" }
-resolution-markers = [
-    "python_full_version < '3.10' and platform_machine == 'arm64' and sys_platform == 'darwin'",
-    "python_full_version < '3.10' and platform_machine == 'aarch64' and sys_platform == 'linux'",
-    "(python_full_version < '3.10' and platform_machine != 'arm64' and sys_platform == 'darwin') or (python_full_version < '3.10' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version < '3.10' and sys_platform != 'darwin' and sys_platform != 'linux')",
-]
 dependencies = [
-    { name = "pywin32", marker = "python_full_version < '3.10' and sys_platform == 'win32'" },
+    { name = "pywin32", marker = "sys_platform == 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/5e/77/65b857a69ed876e1951e88aaba60f5ce6120c33703f7cb61a3c894b8c1b6/portalocker-3.2.0.tar.gz", hash = "sha256:1f3002956a54a8c3730586c5c77bf18fae4149e07eaf1c29fc3faf4d5a3f89ac", size = 95644, upload-time = "2025-06-14T13:20:40.03Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/4b/a6/38c8e2f318bf67d338f4d629e93b0b4b9af331f455f0390ea8ce4a099b26/portalocker-3.2.0-py3-none-any.whl", hash = "sha256:3cdc5f565312224bc570c49337bd21428bba0ef363bbcf58b9ef4a9f11779968", size = 22424, upload-time = "2025-06-14T13:20:38.083Z" },
-]
-
-[[package]]
-name = "portalocker"
-version = "4.4.0"
-source = { registry = "https://pypi.org/simple" }
-resolution-markers = [
-    "python_full_version >= '3.15' and sys_platform == 'darwin'",
-    "python_full_version >= '3.12' and python_full_version < '3.15' and sys_platform == 'darwin'",
-    "python_full_version >= '3.15' and platform_machine == 'aarch64' and sys_platform == 'linux'",
-    "python_full_version >= '3.12' and python_full_version < '3.15' and platform_machine == 'aarch64' and sys_platform == 'linux'",
-    "(python_full_version >= '3.15' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version >= '3.15' and sys_platform != 'darwin' and sys_platform != 'linux')",
-    "(python_full_version >= '3.12' and python_full_version < '3.15' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version >= '3.12' and python_full_version < '3.15' and sys_platform != 'darwin' and sys_platform != 'linux')",
-    "python_full_version == '3.11.*' and sys_platform == 'darwin'",
-    "python_full_version == '3.11.*' and platform_machine == 'aarch64' and sys_platform == 'linux'",
-    "(python_full_version == '3.11.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.11.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
-    "python_full_version == '3.10.*' and sys_platform == 'darwin'",
-    "python_full_version == '3.10.*' and platform_machine == 'aarch64' and sys_platform == 'linux'",
-    "(python_full_version == '3.10.*' and platform_machine != 'aarch64' and sys_platform == 'linux') or (python_full_version == '3.10.*' and sys_platform != 'darwin' and sys_platform != 'linux')",
-]
-sdist = { url = "https://files.pythonhosted.org/packages/81/cd/d2a23fc80c26f539ac77e7d61bd5e4af5d0b3a09a78ac4c716eead345129/portalocker-4.4.0.tar.gz", hash = "sha256:90c0df939d4ffba121f8e925bbf98ecea8b9381718666ab871a226938d2b63b2", size = 304906, upload-time = "2026-09-19T16:11:09.114Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/52/6c/07fa2775e87b6e241c2aca5cef79f65e450bc115de55f03cda6251f81690/portalocker-4.4.0-py3-none-any.whl", hash = "sha256:a8e99ea29bfb61766ee0b4008cbaf0651e8e050f7a2485ebf54316480e99226e", size = 129647, upload-time = "2026-09-19T16:11:07.377Z" },
 ]
 
 [[package]]
@@ -3837,8 +3809,7 @@ inference = [
     { name = "opencv-python-headless" },
     { name = "pillow", version = "11.3.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "pillow", version = "12.3.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
-    { name = "portalocker", version = "3.2.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
-    { name = "portalocker", version = "4.4.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+    { name = "portalocker" },
     { name = "tifffile", version = "2024.8.30", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "tifffile", version = "2025.5.10", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.10.*'" },
     { name = "tifffile", version = "2026.3.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
@@ -3857,8 +3828,6 @@ train = [
     { name = "opencv-python-headless" },
     { name = "pillow", version = "11.3.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "pillow", version = "12.3.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
-    { name = "portalocker", version = "3.2.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
-    { name = "portalocker", version = "4.4.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
     { name = "tifffile", version = "2024.8.30", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "tifffile", version = "2025.5.10", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.10.*'" },
     { name = "tifffile", version = "2026.3.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
@@ -3886,7 +3855,7 @@ requires-dist = [
     { name = "huggingface-hub", specifier = ">=0.36" },
     { name = "imagecodecs", marker = "extra == 'inference'", specifier = ">=2024.6.1" },
     { name = "imagecodecs", marker = "extra == 'train'", specifier = ">=2024.6.1" },
-    { name = "mammoth", extras = ["tensorboard", "torch"], marker = "extra == 'train'", git = "https://github.com/zydtiger/mammoth.git?rev=v0.8.7" },
+    { name = "mammoth", extras = ["tensorboard", "torch"], marker = "extra == 'train'", git = "https://github.com/zydtiger/mammoth.git?rev=v0.8.8" },
     { name = "numcodecs", marker = "python_full_version < '3.11' and extra == 'inference'", specifier = "<0.16" },
     { name = "numcodecs", marker = "python_full_version < '3.11' and extra == 'train'", specifier = "<0.16" },
     { name = "numpy", specifier = ">=1.26" },
@@ -3895,7 +3864,6 @@ requires-dist = [
     { name = "pillow", marker = "extra == 'inference'" },
     { name = "pillow", marker = "extra == 'train'" },
     { name = "portalocker", marker = "extra == 'inference'", specifier = ">=3.2" },
-    { name = "portalocker", marker = "extra == 'train'", specifier = ">=3.2" },
     { name = "prettyterm", git = "https://github.com/zydtiger/prettyterm.git?rev=76a34ed70afd5f12ecbc75d6f97c5e9b6ad142ee" },
     { name = "psutil" },
     { name = "pydantic", specifier = ">=2" },
