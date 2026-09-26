@@ -33,3 +33,23 @@ def test_jsonl_batch_rate_handles_accumulation_and_partial_window(
     )
     assert records[0]["throughput"] == rate
     assert records[0]["batches_per_second"] == expected
+
+
+@pytest.mark.parametrize("phase", ["train", "validation"])
+def test_jsonl_progress_without_elapsed_time_omits_batch_rate(phase):
+    """Preserve progress without inventing a rate when the clock has not advanced."""
+    records = []
+
+    class Writer:
+        def emit(self, event, **fields):
+            records.append(fields)
+
+    TrainingJsonlSink(Writer()).observe(
+        Observation(
+            "progress",
+            fields={"phase": phase, "completed": 1, "coordinates": {"batch": 0}},
+        )
+    )
+    assert records[0]["completed"] == 1
+    assert "throughput" not in records[0]
+    assert "batches_per_second" not in records[0]

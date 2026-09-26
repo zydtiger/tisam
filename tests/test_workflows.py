@@ -145,7 +145,12 @@ def test_training_resume_and_evaluation(small_model, tmp_path, monkeypatch):
     assert records[-1]["event"] == "process_completed" and records[-1]["exit_code"] == 0
     progress = [record for record in records if record["event"] == "progress"]
     assert {record["phase"] for record in progress} == {"train", "validation"}
-    assert all(record["batches_per_second"] > 0 for record in progress)
+    for record in progress:
+        # Short tasks can finish within one clock tick; Mammoth then omits the rate.
+        if record.get("throughput") is None:
+            assert "batches_per_second" not in record
+        else:
+            assert record["batches_per_second"] > 0
     summaries = [record for record in records if "epoch_metrics" in record]
     assert len(summaries) == cfg.epochs * 2
     for record in summaries:

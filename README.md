@@ -294,7 +294,8 @@ attempt under `runs/<name>/logs/executions/<execution-id>/` containing:
 - `tensorboard/`: dense metric history. Point TensorBoard at `runs/<name>/logs`
   to include all attempts and older runs.
 
-JSONL progress records include `batches_per_second`, an epoch-to-date rate.
+JSONL progress records include `batches_per_second`, an epoch-to-date rate,
+when elapsed time is positive. Rates are omitted if the clock has not advanced.
 Mammoth's native `throughput` counts accumulation windows/s during training and
 batches/s during validation; `throughput_unit` identifies which. Batch rates use
 the actual consumed batch count, including a shorter final accumulation window.
