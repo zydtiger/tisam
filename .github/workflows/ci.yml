@@ -21,11 +21,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04]
+        os: [ubuntu-24.04, windows-latest]
         python-version: ["3.9", "3.12", "3.14"]
-        include:
-          - os: windows-latest
-            python-version: "3.12"
     env:
       CUDA_VISIBLE_DEVICES: ""
       HF_HUB_OFFLINE: "1"
@@ -54,7 +51,7 @@ jobs:
           tifffile==2024.8.28 imagecodecs==2024.6.1 zarr==2.18.2 numcodecs==0.12.1
 
       - name: Run commit-stage hooks
-        if: runner.os == 'Linux' && matrix.python-version == '3.12'
+        if: matrix.python-version == '3.12'
         uses: j178/prek-action@4e14d07f9231acabce116ccfca13b13dd9755ece # v3.0.0
         env:
           UV_NO_SYNC: "1"
@@ -73,17 +70,5 @@ jobs:
           extra-args: --all-files --hook-stage pre-push
 
       - name: Build distribution and verify base wheel installation
-        if: runner.os == 'Linux' && matrix.python-version == '3.12'
-        shell: bash
-        run: |
-          smoke_dir=$(mktemp -d)
-          trap 'rm -rf "$smoke_dir"' EXIT
-          uv build --out-dir "$smoke_dir/dist"
-          uv export --locked --no-dev --no-emit-project --no-hashes > "$smoke_dir/constraints.txt"
-          uv venv "$smoke_dir/venv"
-          uv pip install --python "$smoke_dir/venv/bin/python" \
-            --constraint "$smoke_dir/constraints.txt" "$smoke_dir"/dist/*.whl
-          cd "$smoke_dir"
-          "$smoke_dir/venv/bin/python" -I -c \
-            'from tisam import TiSAM, ModelConfig, load_model; import importlib.util; assert importlib.util.find_spec("mammoth") is None'
-          "$smoke_dir/venv/bin/tisam" --help
+        if: matrix.python-version == '3.12'
+        run: uv run --locked --no-sync python scripts/verify_wheel.py

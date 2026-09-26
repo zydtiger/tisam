@@ -29,7 +29,7 @@ repos:
         files: (^|/)pyproject\.toml$|^uv\.lock$
       - id: ruff-check
         name: ruff check
-        entry: uv run --locked --only-group dev ruff check src tests
+        entry: uv run --locked --only-group dev ruff check src tests scripts
         language: system
         pass_filenames: false
         types: [python]

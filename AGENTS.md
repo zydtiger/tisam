@@ -34,12 +34,11 @@ Mechanical checks live in .pre-commit-config.yaml. Install prek once with
 `prek run --all-files` and `prek run --all-files --hook-stage pre-push` before
 handoff. Real pretrained-model tests are opt-in and must not download weights
 as part of ordinary tests. GitHub Actions runs the pre-commit stage on Python
-3.12 and the pre-push stage on Python 3.9, 3.12, and 3.14 under Linux without
-GPU or model downloads. Python 3.9 exercises the minimum dependencies;
-training and resume workflow tests run on all CI versions. Windows runs the
-pre-push stage on Python 3.12 with CPU-only PyTorch and no model downloads.
-Linux Python 3.12 also builds
-the distribution and verifies the base wheel in an isolated environment. Workflow validation belongs to the
+3.12 and the pre-push stage on Python 3.9, 3.12, and 3.14 on both Linux and
+Windows without GPU or model downloads. Python 3.9 exercises the minimum
+dependencies; training and resume workflow tests run on all CI combinations.
+Python 3.12 also builds the distribution and verifies the base wheel in an
+isolated environment on both operating systems. Workflow validation belongs to the
 pinned actionlint hook; do not duplicate hook commands in CI.
 
 Dependabot checks Actions weekly and uv dependencies and hooks monthly. The
