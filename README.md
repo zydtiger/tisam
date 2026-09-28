@@ -25,6 +25,23 @@ Python 3.9–3.10 use tifffile before 2025.5.21 with Zarr 2; Python 3.11+ use
 tifffile 2025.5.21+ with Zarr 3. These pairs preserve lazy TIFF reads. WSI writer
 locks use portalocker rather than a Unix-only API.
 
+### Windows quick-start (NVIDIA GPU)
+
+With Git, uv, and an NVIDIA driver installed, run in PowerShell:
+
+```powershell
+git clone https://github.com/zydtiger/tisam.git
+cd tisam
+uv venv --python 3.12
+uv pip install --torch-backend=auto '.[train,inference]'
+uv run --no-sync tisam --help
+```
+
+No activation is needed. Keep `--no-sync` to preserve the selected backend.
+See [backend selection](#select-a-pytorch-backend) for CUDA options and CPU
+fallback, and [pretrained weights](#pretrained-weights) for model access.
+For Git hooks, install the [development dependencies](#install-for-development-or-testing) first.
+
 ### Choose dependencies for your workflow
 
 Training and inference do not require pytest, Ruff, or mypy. Choose the runtime
@@ -49,16 +66,8 @@ runtime extras.
 
 Install Git and uv first. Git is required because SAM3, PrettyTerm, and Mammoth
 use immutable public Git references. No second local checkout is needed.
-On Windows, install Git and uv from PowerShell:
-
-```powershell
-winget install --id Git.Git -e --source winget
-winget install --id astral-sh.uv -e --source winget
-```
-
-Reopen PowerShell after installation, then verify `git --version` and
-`uv --version`. The `uv run --no-sync` commands below also work in PowerShell;
-activating the virtual environment is not required.
+The commands below also work in Windows PowerShell; activating the virtual
+environment is not required.
 
 If you do not already have a Python environment, create one in your working
 directory:
@@ -403,11 +412,13 @@ prek run --all-files --hook-stage pre-push
 uv build
 ```
 
-Hooks automatically prepare their dependencies from `uv.lock` and fail if the
-lockfile needs updating. Commit-stage Ruff hooks install only the `dev` group;
-type checks and offline tests run only at pre-push and include all optional
-dependencies. CI disables hook synchronization after explicitly preparing its
-environment to preserve the minimum-stack overrides.
+Python hooks use `uv run --no-sync` and the dependencies already installed in
+the project environment, preserving the selected CUDA backend. Install the
+`dev` group and both runtime extras using the
+[development setup](#install-for-development-or-testing) before running hooks;
+hooks do not install missing dependencies. Ruff runs at commit time; type checks
+and offline tests run at pre-push. The separate `uv lock --check` hook checks
+lockfile consistency when dependency files change.
 
 GitHub Actions runs offline tests and type checks across Linux and Windows with
 Python 3.9, 3.12, and 3.14 for pull requests, pushes to `main`, and manual runs.
